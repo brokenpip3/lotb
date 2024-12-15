@@ -17,10 +17,13 @@ jobs:
     if: github.event.pull_request.draft == false
     name: tests
     runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+      contents: write
     strategy:
       fail-fast: false
       matrix:
-        test: ["pytest", "fmt", "mypy", "flake-check"]
+        test: ["pytest", "fmt", "mypy", "flake-check", "coverage"]
     steps:
     - uses: DeterminateSystems/nix-installer-action@v13
       with:
@@ -34,3 +37,9 @@ jobs:
 
     - name: Test ${{ matrix.test }}
       run: nix develop . --command task ${{ matrix.test }}
+
+    - name: Coverage comment
+      if: matrix.test == 'coverage'
+      uses: py-cov-action/python-coverage-comment-action@v3
+      with:
+        GITHUB_TOKEN: ${{ github.token }}

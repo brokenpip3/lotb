@@ -19,6 +19,7 @@ python-dateutil = "^2.9.0.post0"
 pytest = "^8.2.1"
 pytest-asyncio = "^0.23.7"
 types-python-dateutil = "^2.9.0.20241206"
+pytest-cov = "^6.0.0"
 
 [tool.pytest.ini_options]
 pythonpath = ["lotb"]
@@ -35,6 +36,14 @@ indent-style = "space"
 ignore_missing_imports = true
 follow_imports_for_stubs = true
 disallow_untyped_defs = false
+
+[tool.coverage.run]
+relative_files = true
+omit = [".venv"]
+
+[tool.coverage.report]
+fail_under = 70
+skip_empty = true
 
 [build-system]
 requires = ["poetry-core"]
