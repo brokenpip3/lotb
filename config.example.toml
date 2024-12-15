@@ -1,0 +1,32 @@
+[core]
+database = "/path/to/database.db"
+admins = ['admin_id']
+debug = "true"
+
+[plugins.rssfeed]
+enabled = true
+chatid = "admin_id"
+interval = "30"
+feeds = [
+    {name = "feed1", url = "https://example.com/feed1"},
+]
+
+[plugins.readwise]
+enabled = true
+token="readwise_token"
+
+[plugins.prometheus_alerts]
+chatid = "admin_id"
+enabled = true
+alertmanager_url = "https://alert.example.com"
+alert_interval = 1
+
+[plugins.memo]
+generic="/path/to/generic"
+todo = "/path/to/todo"
+book = "/path/to/book"
+series = "/path/to/series"
+film = "/path/to/film"
+
+[plugins.yourplugin]
+enabled = true

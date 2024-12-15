@@ -1,0 +1,17 @@
+session_name: lotb
+windows:
+  - window_name: vim
+    layout: tiled
+    panes:
+      - shell_command:
+        - vim .
+  - window_name: pytest
+    layout: tiled
+    panes:
+      - shell_command:
+        - pytest -s -v
+  - window_name: logs
+    layout: tiled
+    panes:
+      - shell_command:
+        - docker compose logs -f

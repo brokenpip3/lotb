@@ -1,0 +1,11 @@
+services:
+  lotb:
+    build: .
+    container_name: lotb
+    restart: always
+    command: --config /lotb/data/config.toml
+    env_file:
+    - .env
+    volumes:
+      - <my-data-volume>:/lotb/data
+      - <my-config-file>:/lotb/data/config.toml
