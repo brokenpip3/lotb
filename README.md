@@ -1,22 +1,25 @@
 # Lotb: Lord of telegram bots
 
-*One bot to rule them all, one bot to find them, one bot to bring them all and in the darkness run them.*
-
 ![logo](logo.png)
+
+*One bot to rule them all, one bot to find them, one bot to bring them all and in the darkness run them.*
 
 ## Why?
 
-Several years ago, telegram introduced the Bot api, and since then, I have used it to automate tasks and send notifications
-to my groups. While the python-telegram-bot library has been my go-to choice, I often found myself reinventing
-the wheel for each bot I created or used from others. I also had to update all my bots whenever telegram
-introduced new features or changed its implementation. To eliminate this pain and save time, I decided to develop a more
-dry approach for my bots. This system is plugin-based and it shares a common core logic,
-making it easier to define new bots with just a few lines of code.
+Several years ago Telegram introduced the Bot api, and since then, I have used it to automate tasks and send notifications
+to my groups.
+
+While the python-telegram-bot library has been my go-to choice, I often found myself reinventing
+the wheel for each bot I created or used from others people projects.
+I also had to update all my bots whenever telegram introduced new features or changed its implementation.
+
+To eliminate this pain and save time, I decided to develop a more dry approach for my bots.
+This system is plugin-based and it shares a common core logic, making it easier to define new bots with just a few lines of code.
 
 ### Features
 
 * Plugins based: you can enable or disable plugins either at runtime or in the config
-* Each plugin have his own entry and each entry in the config can be overridden by the env var (useful for secrets)
+* Each plugin have his own config entry and entry in the config can be overridden by the env var (useful for secrets)
 * Built-in helper methods to:
   * create, register and run bot commands
   * intercept messages based on a regex and run a callback

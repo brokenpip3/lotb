@@ -36,6 +36,11 @@ tasks:
     cmds:
       - pytest -v -s
 
+  coverage:
+    desc: create coverage report
+    cmds:
+      - pytest --cov=lotb --cov-report=term-missing
+
   mypy:
     desc: run mypy
     cmds:
