@@ -22,10 +22,10 @@ jobs:
       matrix:
         test: ["pytest", "fmt", "mypy", "flake-check"]
     steps:
-    - uses: DeterminateSystems/nix-installer-action@v13
+    - uses: DeterminateSystems/nix-installer-action@v16
       with:
         diagnostic-endpoint: ""
-    - uses: DeterminateSystems/magic-nix-cache-action@v7
+    - uses: DeterminateSystems/magic-nix-cache-action@v8
       with:
         diagnostic-endpoint: ""
 
