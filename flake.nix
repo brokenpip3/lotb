@@ -14,7 +14,7 @@
     flake-utils.lib.eachDefaultSystem (system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        inherit (poetry2nix.lib.mkPoetry2Nix { inherit pkgs; }) mkPoetryApplication;
+        inherit (poetry2nix.lib.mkPoetry2Nix { inherit pkgs; }) mkPoetryApplication defaultPoetryOverrides;
         lotbVersion = ((builtins.fromTOML (builtins.readFile ./pyproject.toml)).tool.poetry.version);
         lotbName = ((builtins.fromTOML (builtins.readFile ./pyproject.toml)).tool.poetry.name);
         dockerRegistry = "ghcr.io/brokenpip3";
@@ -24,9 +24,18 @@
 
         packages = {
           "${lotbName}" = mkPoetryApplication {
-            python = pkgs.python3;
+            python = pkgs.python312;
             projectDir = self;
             checkPhase = "pytest -s -v";
+            overrides = defaultPoetryOverrides.extend
+              (final: prev: {
+                python-telegram-bot = prev.python-telegram-bot.overridePythonAttrs
+                  (
+                    old: {
+                      buildInputs = (old.buildInputs or [ ]) ++ [ prev.hatchling ];
+                    }
+                  );
+              });
           };
           default = self.packages.${system}."${lotbName}";
         };
