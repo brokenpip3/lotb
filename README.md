@@ -1,5 +1,8 @@
 # Lotb
 
+[![Coverage badge](https://github.com/brokenpip3/lotb/raw/python-coverage-comment-action-data/badge.svg)](https://github.com/brokenpip3/lotb/tree/python-coverage-comment-action-data)
+
+
 ![logo](logo.png)
 
 *One bot to rule them all, one bot to find them, one bot to bring them all and in the darkness run them.* 💍
