@@ -42,5 +42,5 @@ jobs:
       - name: build image
         run: nix develop . --command task docker-build
       - name: push image
-        #if: github.event_name != 'pull_request'
+        if: github.event_name != 'pull_request'
         run: nix develop . --command task docker-push

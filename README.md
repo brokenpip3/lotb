@@ -53,7 +53,15 @@ poetry run lotb --config config.toml
 
 ### Docker
 
-tdb
+You can also run the bot using docker, the registry is `ghcr.io/brokenpip3/lotb`, just create a config file
+and mount it in the container:
+
+```bash
+docker run -v $(pwd)/config.toml:/config.toml ghcr.io/brokenpip3/lotb:0.0.1 --config /config.toml
+```
+
+or you can also find a docker-compose example in the [docker-compose-example.yml](./docker-compose-example.yml) file.
+
 
 ## Plugins
 
@@ -107,7 +115,7 @@ Be aware that these are the plugins that I wrote for my own use, and they may be
   series = "" # path to the series memo file
   film = "" # path to the film memo file
   ```
-* [Image](./lotb/plugins/images.py): A plugin that will let you save image in sqlite and call it in a group chat with `imagename.img` or search
+* [Image](./lotb/plugins/images.py): A plugin that will let you save image id in sqlite and call it in a group chat with `imagename.img` or search
   for images with `/image search term` using unsplash:
   ```toml
   [plugins.image]
