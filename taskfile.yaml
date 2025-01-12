@@ -52,11 +52,30 @@ tasks:
       - ruff check --fix
       - ruff format
 
+  docker-version:
+    desc: temp ovverride ver in pyproject.toml if OVERRIDE_VERSION
+    silent: true
+    cmds:
+      - |
+        if [ -n "$OVERRIDE_VERSION" ]; then
+          sed -i '3s/^version = "[^"]*"/version = "'"$OVERRIDE_VERSION"'"/' pyproject.toml;
+        fi
+
   docker-build:
     desc: build docker img from nix
+    deps:
+      - docker-version
     cmds:
       - nix build .#dockerimg
       - docker load < result
+
+  docker-push:
+    desc: docker push
+    silent: true
+    cmds:
+      - |
+        export IMAGE=$(docker images | grep -E "lotb" | awk '{print $1":"$2}' | head -n 1)
+        docker push $IMAGE
 
   docker-compose-recreate:
     desc: restart container

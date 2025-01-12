@@ -17,6 +17,7 @@
         inherit (poetry2nix.lib.mkPoetry2Nix { inherit pkgs; }) mkPoetryApplication;
         lotbVersion = ((builtins.fromTOML (builtins.readFile ./pyproject.toml)).tool.poetry.version);
         lotbName = ((builtins.fromTOML (builtins.readFile ./pyproject.toml)).tool.poetry.name);
+        dockerRegistry = "ghcr.io/brokenpip3";
       in
       {
         formatter = nixpkgs.legacyPackages.${system}.nixpkgs-fmt;
@@ -30,18 +31,25 @@
           default = self.packages.${system}."${lotbName}";
         };
 
-        packages.dockerimg = pkgs.dockerTools.buildImage {
-          name = "${lotbName}";
-          tag = "${lotbVersion}";
-          copyToRoot = self.packages.${system}.default;
-          config = {
-            Labels = {
-              "maintainer" = "brokenpip3";
-              "description" = "Docker image for ${lotbName}";
-              "version" = "${lotbVersion}";
+        packages.dockerimg = pkgs.dockerTools.buildImage
+          {
+            name = "${dockerRegistry}/${lotbName}";
+            tag = "${lotbVersion}";
+            created = "now";
+            copyToRoot = self.packages.${system}.default;
+            config = {
+              Labels = {
+                "maintainer" = "brokenpip3";
+                "description" = "Docker image for ${lotbName}";
+                "version" = "${lotbVersion}";
+                "org.opencontainers.image.authors" = "brokenpip3 <brokenpip3@gmail.com>";
+                "org.opencontainers.image.title" = "lotb";
+                "org.opencontainers.image.description" = "Lord of telegram bots";
+                "org.opencontainers.image.url" = "ghcr.io/brokenpip3/lotb";
+                "org.opencontainers.image.source" = "https://github.com/brokenpip3/lotb";
+              };
             };
           };
-        };
 
 
         devShells.default = pkgs.mkShell {
