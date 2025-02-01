@@ -30,7 +30,9 @@ def socialfix_plugin(mock_config):
 async def test_fix_twitter_link(mock_update, mock_context, socialfix_plugin):
   mock_update.message.text = "https://x.com/fuckyoumask"
   await socialfix_plugin.execute(mock_update, mock_context)
-  socialfix_plugin.reply_message.assert_awaited_once_with(mock_update, mock_context, "https://fxtwitter.com/fuckyoumask")
+  socialfix_plugin.reply_message.assert_awaited_once_with(
+    mock_update, mock_context, "https://fxtwitter.com/fuckyoumask"
+  )
 
 
 @pytest.mark.asyncio
