@@ -11,8 +11,6 @@ class Plugin(PluginBase):
 
   def initialize(self):
     plugin_config = self.config.get(f"plugins.{self.name}", {})
-    if plugin_config.get("debug"):
-      self.log_info(f"Configuration for {self.name}: {plugin_config}")
     self.readwise_token = plugin_config.get("token")
     if not self.readwise_token:
       raise ValueError("Readwise token not found in configuration.")

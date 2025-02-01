@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lotb"
-version = "0.0.3"
+version = "0.0.4"
 description = "Lord of the Telegram bots"
 authors = ["brokenpip3 <brokenpip3@gmail.com>"]
 license = "MIT"
