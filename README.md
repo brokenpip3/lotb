@@ -128,6 +128,10 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
   ```toml
   [plugins.socialfix]
   enabled = true # enable or disable the plugin
+* [Quote](./lotb/plugins/quote.py): A plugin that will let you save quotes in sqlite and retrieve them later:
+  ```toml
+  [plugins.quote]
+  enabled = true # enable or disable the plugin
   ```
 
 ### How to add a plugin? What helper methods are available?
