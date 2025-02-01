@@ -52,6 +52,11 @@ tasks:
       - ruff check --fix
       - ruff format
 
+  local:
+    desc: run the app locally
+    cmds:
+      - nix run .#lotb -- --config config.yaml
+
   docker-version:
     desc: temp ovverride ver in pyproject.toml if OVERRIDE_VERSION
     silent: true

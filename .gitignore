@@ -217,4 +217,4 @@ pyrightconfig.json
 *.db
 result
 config.toml
-.secret-*
+.secret

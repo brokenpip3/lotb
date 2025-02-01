@@ -124,6 +124,11 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
   accesskey = "your_access_key" # can be also set as env var: LOTB_PLUGINS_IMAGE_ACCESSKEY
   secretkey = "your_secret_key" # can be also set as env var: LOTB_PLUGINS_IMAGE_SECRETKEY
   ```
+* [SocialFix](./lotb/plugins/socialfix.py): A simple plugin that will fix twitter and instagram links to show the preview in telegram:
+  ```toml
+  [plugins.socialfix]
+  enabled = true # enable or disable the plugin
+  ```
 
 ### How to add a plugin? What helper methods are available?
 
