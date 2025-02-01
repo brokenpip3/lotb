@@ -28,10 +28,10 @@ jobs:
     - uses: DeterminateSystems/nix-installer-action@v16
       with:
         diagnostic-endpoint: ""
-    - uses: DeterminateSystems/magic-nix-cache-action@v8
-      with:
-        diagnostic-endpoint: ""
-
+    # https://determinate.systems/posts/magic-nix-cache-free-tier-eol/
+    #- uses: DeterminateSystems/magic-nix-cache-action@v8
+    #  with:
+    #    diagnostic-endpoint: ""
     - name: Check out code
       uses: actions/checkout@v4
 
