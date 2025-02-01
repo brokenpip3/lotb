@@ -3,8 +3,6 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
-from telegram import Chat
-from telegram import User
 from telegram.ext import ContextTypes
 
 from lotb.common.plugin_class import PluginBase
@@ -18,13 +16,7 @@ from lotb.lotb import list_plugins
 @pytest.fixture
 def mock_update(mock_update):
   update = mock_update
-  user = MagicMock(spec=User)
-  chat = MagicMock(spec=Chat)
-  user.id = 12345
-  chat.id = 67890
   update.message.text = "/test"
-  update.effective_user = user
-  update.effective_chat = chat
   return update
 
 
@@ -45,9 +37,7 @@ async def test_handle_command_authorized(mock_load_plugins, mock_plugins, mock_u
   mock_plugin.group_is_authorized.return_value = True
   mock_plugin.execute = AsyncMock()
   mock_plugins["test"] = mock_plugin
-
   await handle_command(mock_update, mock_context)
-
   mock_plugin.execute.assert_called_once_with(mock_update, mock_context)
   mock_update.message.reply_text.assert_not_called()
 
@@ -59,9 +49,7 @@ async def test_handle_command_unauthorized_group(mock_load_plugins, mock_plugins
   mock_plugin = MagicMock()
   mock_plugin.group_is_authorized.return_value = False
   mock_plugins["test"] = mock_plugin
-
   await handle_command(mock_update, mock_context)
-
   mock_plugin.execute.assert_not_called()
 
 
@@ -74,9 +62,7 @@ async def test_handle_command_unauthorized_user(mock_load_plugins, mock_plugins,
   mock_plugin.group_is_authorized.return_value = True
   mock_plugin.execute = AsyncMock()
   mock_plugins["test"] = mock_plugin
-
   await handle_command(mock_update, mock_context)
-
   mock_update.message.reply_text.assert_called_once_with("you are not authorized to use this command.")
 
 
@@ -87,11 +73,9 @@ async def test_help_command(mock_load_plugins, mock_plugins, mock_update, mock_c
   mock_plugin = MagicMock()
   mock_plugin.description = "Test command"
   mock_plugins["test"] = mock_plugin
-
   await help_command(mock_update, mock_context)
-
-  expected_text = "Available commands:\n\n/test - Test command\nFind more at https://github.com/brokenpip3/lotb"
-  mock_update.message.reply_text.assert_called_once_with(expected_text)
+  expected_text = "Available commands:\n\n/test - Test command\n\nFind more at https://github.com/brokenpip3/lotb"
+  mock_update.message.reply_text.assert_called_once_with(expected_text, disable_web_page_preview=True)
 
 
 @pytest.mark.asyncio
@@ -107,11 +91,8 @@ async def test_enable_plugin(
   mock_import_module.return_value = mock_module
   mock_plugin_instance = MagicMock()
   mock_module.Plugin.return_value = mock_plugin_instance
-
   config = MagicMock()
-
   await enable_plugin(mock_update, mock_context, config)
-
   mock_update.message.reply_text.assert_called_once_with("Plugin test enabled.")
   assert "test" in mock_plugins
 
@@ -124,9 +105,7 @@ async def test_disable_plugin(mock_application, mock_handlers, mock_plugins, moc
   mock_context.args = ["test"]
   mock_plugins["test"] = MagicMock()
   mock_handlers["test"] = MagicMock()
-
   await disable_plugin(mock_update, mock_context)
-
   mock_update.message.reply_text.assert_called_once_with("Plugin test disabled.")
   assert "test" not in mock_plugins
   assert "test" not in mock_handlers
@@ -137,9 +116,7 @@ async def test_disable_plugin(mock_application, mock_handlers, mock_plugins, moc
 @patch("lotb.lotb.load_plugins")
 async def test_list_plugins(mock_load_plugins, mock_plugins, mock_update, mock_context):
   mock_plugins["test"] = MagicMock()
-
   await list_plugins(mock_update, mock_context)
-
   mock_update.message.reply_text.assert_called_once_with("🤖 Enabled plugins:\ntest")
 
 

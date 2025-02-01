@@ -140,7 +140,7 @@ Check [CONTRIBUTING.md](./CONTRIBUTING.md)
 
 ## Credits 🙏
 
-* Thanks to the [`python-telegra-bot`](https://github.com/python-telegram-bot/python-telegram-bot) dev team for the great library
+* Thanks to the [`python-telegram-bot`](https://github.com/python-telegram-bot/python-telegram-bot) dev team for the great library
 * Thanks DALL-E for the great logo
 * This repo has been initialized with:
 

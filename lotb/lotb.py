@@ -92,9 +92,9 @@ async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
   commands = [f"/{command} - {plugin.description}" for command, plugin in plugins.items()]
-  response = "Available commands:\n\n" + "\n".join(commands) + "\nFind more at https://github.com/brokenpip3/lotb"
+  response = "Available commands:\n\n" + "\n".join(commands) + "\n\nFind more at https://github.com/brokenpip3/lotb"
   if update.message:
-    await update.message.reply_text(response)
+    await update.message.reply_text(response, disable_web_page_preview=True)
     logger.info("Displayed help commands.")
 
 
