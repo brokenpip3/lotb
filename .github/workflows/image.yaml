@@ -36,9 +36,9 @@ jobs:
         run: |
           if [ "${GITHUB_EVENT_NAME}" == "release" ]; then
             TAG_NAME="${GITHUB_REF#refs/tags/}"
-            echo "OVERRIDE_VERSION=0.0.0+${TAG_NAME}" >> $GITHUB_ENV
+            echo "OVERRIDE_VERSION=${TAG_NAME}" >> $GITHUB_ENV
           else
-            echo "OVERRIDE_VERSION=$(git rev-parse --short HEAD)" >> $GITHUB_ENV
+            echo "OVERRIDE_VERSION=0.0.0-dev" >> $GITHUB_ENV
           fi
       - name: build image
         run: nix develop . --command task docker-build
