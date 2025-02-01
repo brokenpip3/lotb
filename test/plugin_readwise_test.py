@@ -36,6 +36,7 @@ async def test_save_url(mock_httpx_client, mock_httpx_async, mock_update, mock_c
   await plugin.execute(mock_update, mock_context)
   mock_update.message.reply_text.assert_called_once_with("URL saved to Readwise successfully.", quote=True)
 
+
 @pytest.mark.asyncio
 @patch("lotb.plugins.readwise.httpx.AsyncClient")
 @patch("lotb.plugins.readwise.httpx.Client")
@@ -58,6 +59,7 @@ async def test_readwise_article_already_exist(mock_httpx_client, mock_httpx_asyn
   plugin.initialize()
   await plugin.execute(mock_update, mock_context)
   mock_update.message.reply_text.assert_called_once_with("URL already exists in your Readwise archive.", quote=True)
+
 
 @pytest.mark.asyncio
 @patch("lotb.plugins.readwise.httpx.Client")
