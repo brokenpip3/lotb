@@ -90,7 +90,7 @@ async def test_help_command(mock_load_plugins, mock_plugins, mock_update, mock_c
 
   await help_command(mock_update, mock_context)
 
-  expected_text = "Available commands:\n/test - Test command"
+  expected_text = "Available commands:\n\n/test - Test command\nFind more at https://github.com/brokenpip3/lotb"
   mock_update.message.reply_text.assert_called_once_with(expected_text)
 
 
