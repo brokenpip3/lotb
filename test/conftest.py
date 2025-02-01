@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
+from telegram import Chat
 from telegram import Message
 from telegram import Update
 from telegram import User
@@ -14,9 +15,12 @@ def mock_update():
   update = MagicMock(spec=Update)
   message = MagicMock(spec=Message)
   user = MagicMock(spec=User)
+  chat = MagicMock(spec=Chat)
   update.message = message
   update.effective_user = user
+  update.effective_chat = chat
   user.id = 4815162342
+  chat.id = 996699
   message.reply_text = AsyncMock()
   message.reply_to_message = None
   return update
