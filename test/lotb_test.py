@@ -128,7 +128,10 @@ def plugin():
 @pytest.fixture
 def config():
   return {
-    "core": {"admins": [12345], "database_name": "test.db"},
+    "core": {
+      "database": ":memory:",
+      "admins": [12345],
+    },
     "plugins.test_plugin": {"auth_groups_ids": [67890], "auth_group_enabled": True},
   }
 

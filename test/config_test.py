@@ -11,7 +11,7 @@ def mock_toml_file(tmp_path):
   toml_content = """
     [core]
     token = "test_token"
-    database = "/tmp/test.db"
+    database = ":memory:"
 
     [plugins.readwise]
     token = "readwise_token"
@@ -48,7 +48,7 @@ def test_load_config_from_file(mock_toml_file):
   with patch("os.path.exists", return_value=True):
     config = Config(mock_toml_file)
     assert config.get("core.token") == "test_token"
-    assert config.get("core.database") == "/tmp/test.db"
+    assert config.get("core.database") == ":memory:"
     assert config.get("plugins.readwise.token") == "readwise_token"
     assert config.get("plugins.rssfeed.chatid") == "4815162342"
     assert config.get("plugins.rssfeed.interval") == 40
