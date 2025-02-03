@@ -40,7 +40,7 @@ class PluginBase:
     if plugin_config.get("debug"):
       self.log_info(f"Configuration for {self.name}: {plugin_config}")
 
-    database_name = self.config.get("core.database", "lotb.db")
+    database_name = self.config.get("core.database", ":memory:")
     self.connection = sqlite3.connect(database_name)
     self.db_cursor = self.connection.cursor()
     self.log_info(f"Database connection established for {self.name}")

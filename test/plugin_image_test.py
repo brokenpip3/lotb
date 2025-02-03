@@ -14,7 +14,7 @@ from lotb.plugins.image import Plugin
 def mock_config():
   config = MagicMock(spec=Config)
   config.get.side_effect = lambda key, default=None: {
-    "core.database": "/tmp/test.db",
+    "core.database": ":memory:",
     "plugins.image": {"enabled": "true", "accesskey": "jamaica", "secretkey": "japan"},
   }.get(key, default)
   return config

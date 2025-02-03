@@ -12,7 +12,7 @@ from lotb.plugins.memo import Plugin
 def mock_config():
   config = MagicMock(spec=Config)
   config.get.side_effect = lambda key, default=None: {
-    "core.database_name": "/tmp/test.db",
+    "core.database": ":memory:",
     "plugins.memo": {
       "generic": "generic_memo",
       "todo": "todo_memo",
@@ -33,7 +33,7 @@ def memo_plugin(mock_config):
 
 
 @pytest.mark.asyncio
-async def test_memo_generic(mock_update, mock_context, memo_plugin):
+async def test_memo_generic(mock_update, mock_context, memo_plugin, mock_config):
   mock_update.message.text = "/memo I don't even remember my own name"
   with patch(
     "lotb.plugins.memo.Plugin.get_daily_file_path", return_value="generic_memo_2024_06_15.md"

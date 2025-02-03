@@ -2,19 +2,24 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from lotb.common.config import Config
 from lotb.plugins.notes import Plugin
 
 
-@pytest.mark.asyncio
-async def test_add_note_success(mock_update, mock_context, mock_db):
-  config = MagicMock()
+@pytest.fixture
+def mock_config():
+  config = MagicMock(spec=Config)
   config.get.side_effect = lambda key, default=None: {
-    "core.database_name": "/tmp/test.db",
+    "core.database_name": ":memory:",
     "plugins.notes": {"debug": True},
   }.get(key, default)
+  return config
 
+
+@pytest.mark.asyncio
+async def test_add_note_success(mock_update, mock_context, mock_db, mock_config):
   plugin = Plugin()
-  plugin.set_config(config)
+  plugin.set_config(mock_config)
   plugin.db_cursor = mock_db
   plugin.initialize()
   mock_update.message.text = "/notes add the north remembers"
@@ -27,15 +32,9 @@ async def test_add_note_success(mock_update, mock_context, mock_db):
 
 
 @pytest.mark.asyncio
-async def test_view_notes_with_notes(mock_update, mock_context, mock_db):
-  config = MagicMock()
-  config.get.side_effect = lambda key, default=None: {
-    "core.database_name": "/tmp/test.db",
-    "plugins.notes": {"debug": True},
-  }.get(key, default)
-
+async def test_view_notes_with_notes(mock_update, mock_context, mock_db, mock_config):
   plugin = Plugin()
-  plugin.set_config(config)
+  plugin.set_config(mock_config)
   plugin.db_cursor = mock_db
   plugin.initialize()
   mock_update.message.text = "/notes list"
@@ -47,15 +46,9 @@ async def test_view_notes_with_notes(mock_update, mock_context, mock_db):
 
 
 @pytest.mark.asyncio
-async def test_view_notes_no_notes(mock_update, mock_context, mock_db):
-  config = MagicMock()
-  config.get.side_effect = lambda key, default=None: {
-    "core.database_name": "/tmp/test.db",
-    "plugins.notes": {"debug": True},
-  }.get(key, default)
-
+async def test_view_notes_no_notes(mock_update, mock_context, mock_db, mock_config):
   plugin = Plugin()
-  plugin.set_config(config)
+  plugin.set_config(mock_config)
   plugin.initialize()
   mock_update.message.text = "/notes list"
   mock_db.fetchall.return_value = []
@@ -66,15 +59,9 @@ async def test_view_notes_no_notes(mock_update, mock_context, mock_db):
 
 
 @pytest.mark.asyncio
-async def test_delete_note_success(mock_update, mock_context, mock_db):
-  config = MagicMock()
-  config.get.side_effect = lambda key, default=None: {
-    "core.database_name": "/tmp/test.db",
-    "plugins.notes": {"debug": True},
-  }.get(key, default)
-
+async def test_delete_note_success(mock_update, mock_context, mock_db, mock_config):
   plugin = Plugin()
-  plugin.set_config(config)
+  plugin.set_config(mock_config)
   plugin.db_cursor = mock_db
   plugin.initialize()
   mock_update.message.text = "/notes delete 1"
@@ -86,15 +73,9 @@ async def test_delete_note_success(mock_update, mock_context, mock_db):
 
 
 @pytest.mark.asyncio
-async def test_delete_note_not_found(mock_update, mock_context, mock_db):
-  config = MagicMock()
-  config.get.side_effect = lambda key, default=None: {
-    "core.database_name": "/tmp/test.db",
-    "plugins.notes": {"debug": True},
-  }.get(key, default)
-
+async def test_delete_note_not_found(mock_update, mock_context, mock_db, mock_config):
   plugin = Plugin()
-  plugin.set_config(config)
+  plugin.set_config(mock_config)
   plugin.db_cursor = mock_db
   plugin.initialize()
   mock_update.message.text = "/notes delete 1"
@@ -108,15 +89,9 @@ async def test_delete_note_not_found(mock_update, mock_context, mock_db):
 
 
 @pytest.mark.asyncio
-async def test_invalid_subcommand(mock_update, mock_context, mock_db):
-  config = MagicMock()
-  config.get.side_effect = lambda key, default=None: {
-    "core.database_name": "/tmp/test.db",
-    "plugins.notes": {"debug": True},
-  }.get(key, default)
-
+async def test_invalid_subcommand(mock_update, mock_context, mock_db, mock_config):
   plugin = Plugin()
-  plugin.set_config(config)
+  plugin.set_config(mock_config)
   plugin.db_cursor = mock_db
   plugin.initialize()
   mock_update.message.text = "/notes invalid"

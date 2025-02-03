@@ -11,7 +11,7 @@ from lotb.plugins.socialfix import Plugin
 def mock_config():
   config = MagicMock(spec=Config)
   config.get.side_effect = lambda key, default=None: {
-    "core.database": "/tmp/test.db",
+    "core.database": ":memory:",
     "plugins.socialfix": {"enabled": "true"},
   }.get(key, default)
   return config
