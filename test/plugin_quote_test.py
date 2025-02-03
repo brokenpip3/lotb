@@ -10,7 +10,7 @@ from lotb.plugins.quote import Plugin
 def mock_config():
   config = MagicMock()
   config.get.side_effect = lambda key, default=None: {
-    "core.database_name": "file::memory:?cache=shared",
+    "core.database_name": ":memory:",
     "plugins.quote": {"enabled": True},
   }.get(key, default)
   return config
