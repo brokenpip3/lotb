@@ -10,7 +10,12 @@ from lotb.common.plugin_class import PluginBase
 
 class Plugin(PluginBase):
   def __init__(self):
-    super().__init__("image", "Save and recall images with /image <name> and <name>.img", require_auth=False)
+    super().__init__(
+      "image",
+      "Save images with /image <name> and recall them with <name>.img. \
+       Search for images using /image <term>, if no term passed list all the saved images.",
+      require_auth=False,
+    )
 
   def initialize(self):
     self.initialize_plugin()
@@ -85,11 +90,11 @@ class Plugin(PluginBase):
             await self.reply_message(update, context, f"No image found for term: {term}")
         except httpx.HTTPStatusError as e:
           if e.response.status_code == 500:
-            if update.message:
-              await update.message.reply_text("error occurred while fetching image from unsplash")
+            await self.reply_message(update, context, "error occurred while fetching image from unsplash")
             self.log_info(f"error searching for an image: {term}, HTTP status 500")
+            return
           else:
-            await update.message.reply_text(f"Unexpected error: {e}")
+            await self.reply_message(update, context, f"Unexpected error: {e}")
             self.log_info(f"Unexpected error searching for image: {term}, exception: {e}")
       else:
         await self.reply_message(update, context, "Image search is unavailable due to missing Unsplash keys.")
@@ -116,7 +121,7 @@ class Plugin(PluginBase):
           await self.reply_message(update, context, "Chat information is unavailable.")
       else:
         await self.reply_message(update, context, "No photo found in the message.")
-      await self.reply_message(update, context, f"Image saved with name: {name}")
+        return
 
   async def recall_image(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message and update.message.text:
