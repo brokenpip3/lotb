@@ -12,12 +12,12 @@
 | lotb/plugins/memo.py               |       83 |       14 |     83% |63, 85-86, 89-90, 125-128, 134-135, 143-144, 156 |
 | lotb/plugins/notes.py              |       64 |       12 |     81% |30-31, 40-41, 47-48, 60-61, 81-82, 87, 104 |
 | lotb/plugins/prometheus\_alerts.py |       95 |       16 |     83% |23, 40-42, 81-82, 88-89, 110, 114-119, 141-142 |
-| lotb/plugins/quote.py              |       61 |        2 |     97% |     96-98 |
+| lotb/plugins/quote.py              |       77 |        2 |     97% |   118-120 |
 | lotb/plugins/readwise.py           |       50 |        4 |     92% |     55-59 |
 | lotb/plugins/rssfeed.py            |       60 |       10 |     83% |22, 24, 30, 71-73, 76-81, 87 |
 | lotb/plugins/socialfix.py          |       27 |        0 |    100% |           |
 | lotb/plugins/welcome.py            |       17 |        0 |    100% |           |
-|                          **TOTAL** |  **857** |  **191** | **78%** |           |
+|                          **TOTAL** |  **873** |  **191** | **78%** |           |
 
 3 empty files skipped.
 
