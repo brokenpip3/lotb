@@ -78,6 +78,28 @@ class Plugin(PluginBase):
       await self.reply_quote_message(update, context, "No quotes found containing that term")
       self.log_info(f"No quotes found containing term '{term}' in chat {chat_id}")
 
+  async def get_random_quote(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat:
+      chat_id = update.effective_chat.id
+    else:
+      await self.reply_quote_message(update, context, "Chat information is missing")
+      return
+
+    if self.db_cursor:
+      self.db_cursor.execute("SELECT quote FROM quotes WHERE chat_id = ?", (chat_id,))
+      quotes = self.db_cursor.fetchall()
+    else:
+      await self.reply_quote_message(update, context, "Database cursor is not available.")
+      return
+
+    if quotes:
+      selected_quote = random.choice(quotes)[0]
+      await self.reply_quote_message(update, context, selected_quote)
+      self.log_info(f"Random quote retrieved in chat {chat_id}: {selected_quote}")
+    else:
+      await self.reply_quote_message(update, context, "No quotes available")
+      self.log_info(f"No quotes available in chat {chat_id}")
+
   async def execute(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message and update.message.text:
       parts = update.message.text.split(maxsplit=1)
@@ -87,7 +109,7 @@ class Plugin(PluginBase):
           quote_text = update.message.reply_to_message.text
           await self.add_quote(update, context, quote_text)
         else:
-          await self.reply_quote_message(update, context, "Please reply to a message to add it as a quote")
+          await self.get_random_quote(update, context)
       elif len(parts) == 2:
         term = parts[1].strip()
         if term:
