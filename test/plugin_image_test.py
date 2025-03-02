@@ -107,6 +107,30 @@ async def test_unsplash_search_no_results(mock_update, mock_context, image_plugi
 
 
 @pytest.mark.asyncio
+async def test_list_images(mock_update, mock_context, image_plugin):
+  mock_update.message.text = "/image"
+  mock_update.effective_chat.id = 123456789
+
+  with patch("lotb.plugins.image.Plugin.get_image_names", return_value=["avvocato", "ahnonposso"]) as mock_get_names:
+    await image_plugin.execute(mock_update, mock_context)
+    mock_get_names.assert_called_once_with(mock_update.effective_chat.id)
+    mock_update.message.reply_text.assert_called_once_with("Available images:\n- avvocato\n- ahnonposso")
+
+
+@pytest.mark.asyncio
+async def test_list_images_empty(mock_update, mock_context, image_plugin):
+  mock_update.message.text = "/image"
+  mock_update.effective_chat.id = 123456789
+
+  with patch("lotb.plugins.image.Plugin.get_image_names", return_value=[]) as mock_get_names:
+    await image_plugin.execute(mock_update, mock_context)
+    mock_get_names.assert_called_once_with(mock_update.effective_chat.id)
+    mock_update.message.reply_text.assert_called_once_with(
+      "No images saved yet, reply to an image with /image <name> to save one"
+    )
+
+
+@pytest.mark.asyncio
 async def test_unsplash_search_api_error(mock_update, mock_context, image_plugin):
   mock_update.message.text = "/image sunset"
   mock_update.effective_chat.id = 123456789
