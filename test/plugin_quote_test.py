@@ -45,9 +45,10 @@ async def test_add_quote_success(mock_update, mock_context, mock_db, plugin):
 async def test_add_quote_no_reply(mock_update, mock_context, mock_db, plugin):
   mock_update.message.reply_to_message = None
   mock_update.message.text = "/quote"
+  mock_db.fetchall.return_value = []
   await plugin.execute(mock_update, mock_context)
-  mock_db.execute.assert_not_called()
-  mock_update.message.reply_text.assert_awaited_once_with("Please reply to a message to add it as a quote", quote=True)
+  mock_db.execute.assert_called_once_with("SELECT quote FROM quotes WHERE chat_id = ?", (996699,))
+  mock_update.message.reply_text.assert_awaited_once_with("No quotes available", quote=True)
 
 
 @pytest.mark.asyncio
@@ -80,12 +81,30 @@ async def test_get_quote_no_match(mock_update, mock_context, mock_db, plugin):
 
 
 @pytest.mark.asyncio
-async def test_with_no_term_only_space(mock_update, mock_context, mock_db, plugin):
+async def test_with_no_term_only_space_no_quote_available(mock_update, mock_context, mock_db, plugin):
   mock_update.message.text = "/quote  "
+  mock_update.message.reply_to_message = None
+  mock_db.fetchall.return_value = []
   await plugin.execute(mock_update, mock_context)
-  mock_db.execute.assert_not_called()
-  mock_update.message.reply_text.assert_awaited_once_with("Please reply to a message to add it as a quote", quote=True)
+  mock_db.execute.assert_called_once_with("SELECT quote FROM quotes WHERE chat_id = ?", (996699,))
+  mock_update.message.reply_text.assert_awaited_once_with("No quotes available", quote=True)
 
+@pytest.mark.asyncio
+async def test_with_no_term_only_space_return_quote(mock_update, mock_context, mock_db, plugin):
+  mock_update.message.text = "/quote  "
+  mock_update.message.reply_to_message = None
+  mock_db.fetchall.return_value = [
+    ("The answer is inside you but it is wrong\n\n- Guzzanti",),
+    ("Quoting is like something else but it's wrong\n\n- Pinguini Tattici Nucleari",),
+  ]
+  await plugin.execute(mock_update, mock_context)
+  mock_db.execute.assert_called_once_with("SELECT quote FROM quotes WHERE chat_id = ?", (996699,))
+  called_with = mock_update.message.reply_text.call_args[0][0]
+  # assert in a list to avoid flaky test
+  assert called_with in [
+    "The answer is inside you but it is wrong\n\n- Guzzanti",
+    "Quoting is like something else but it's wrong\n\n- Pinguini Tattici Nucleari",
+  ]
 
 @pytest.mark.asyncio
 async def test_add_missing_user(mock_update, mock_context, plugin):
@@ -118,13 +137,28 @@ async def test_get_quote_missing_chat(mock_update, mock_context, plugin):
 
 
 @pytest.mark.asyncio
+async def test_get_random_quote_missing_db_cursor(mock_update, mock_context, plugin):
+  mock_update.effective_chat.id = 996699
+  plugin.db_cursor = None
+  plugin.reply_quote_message = AsyncMock()
+  await plugin.get_random_quote(mock_update, mock_context)
+  plugin.reply_quote_message.assert_awaited_once_with(mock_update, mock_context, "Database cursor is not available.")
+
+@pytest.mark.asyncio
+async def test_get_random_quote_missing_chat(mock_update, mock_context, plugin):
+  mock_update.effective_chat = None
+  plugin.reply_quote_message = AsyncMock()
+  await plugin.get_random_quote(mock_update, mock_context)
+  plugin.reply_quote_message.assert_awaited_once_with(mock_update, mock_context, "Chat information is missing")
+
+
+@pytest.mark.asyncio
 async def test_get_quote_missing_db_cursor(mock_update, mock_context, plugin):
   mock_update.effective_chat.id = 996699
   plugin.db_cursor = None
   plugin.reply_quote_message = AsyncMock()
   await plugin.get_quote(mock_update, mock_context, "was great but the db is not ready")
   plugin.reply_quote_message.assert_awaited_once_with(mock_update, mock_context, "Database cursor is not available.")
-
 
 @pytest.mark.asyncio
 async def test_execute_no_command_text(mock_update, mock_context, plugin):
