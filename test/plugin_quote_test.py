@@ -137,13 +137,28 @@ async def test_get_quote_missing_chat(mock_update, mock_context, plugin):
 
 
 @pytest.mark.asyncio
+async def test_get_random_quote_missing_db_cursor(mock_update, mock_context, plugin):
+  mock_update.effective_chat.id = 996699
+  plugin.db_cursor = None
+  plugin.reply_quote_message = AsyncMock()
+  await plugin.get_random_quote(mock_update, mock_context)
+  plugin.reply_quote_message.assert_awaited_once_with(mock_update, mock_context, "Database cursor is not available.")
+
+@pytest.mark.asyncio
+async def test_get_random_quote_missing_chat(mock_update, mock_context, plugin):
+  mock_update.effective_chat = None
+  plugin.reply_quote_message = AsyncMock()
+  await plugin.get_random_quote(mock_update, mock_context)
+  plugin.reply_quote_message.assert_awaited_once_with(mock_update, mock_context, "Chat information is missing")
+
+
+@pytest.mark.asyncio
 async def test_get_quote_missing_db_cursor(mock_update, mock_context, plugin):
   mock_update.effective_chat.id = 996699
   plugin.db_cursor = None
   plugin.reply_quote_message = AsyncMock()
   await plugin.get_quote(mock_update, mock_context, "was great but the db is not ready")
   plugin.reply_quote_message.assert_awaited_once_with(mock_update, mock_context, "Database cursor is not available.")
-
 
 @pytest.mark.asyncio
 async def test_execute_no_command_text(mock_update, mock_context, plugin):
