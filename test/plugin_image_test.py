@@ -126,7 +126,7 @@ async def test_list_images_empty(mock_update, mock_context, image_plugin):
 @pytest.mark.asyncio
 async def test_unsplash_search_api_error(mock_update, mock_context, image_plugin):
   mock_update.message.text = "/image sunset"
-  mock_update.effective_chat.id = 123456789
+  mock_update.effective_chat.id = 996699
 
   with patch("lotb.plugins.image.httpx.AsyncClient.get") as mock_get:
     mock_get.return_value.status_code = 500
@@ -180,3 +180,33 @@ async def test_handle_photo_missing_chat_info(mock_update, mock_context, image_p
 
   await image_plugin.handle_photo(mock_update, mock_context)
   mock_update.message.reply_text.assert_awaited_once_with("Chat information is unavailable.")
+
+@pytest.mark.asyncio
+async def test_get_image_names_with_results(image_plugin, mock_db):
+     mock_cursor = mock_db.mock_cursor
+     mock_cursor.fetchall.return_value = [("sunrise",), ("dawn",), ("sunset",)]
+     image_plugin.db_cursor = mock_cursor
+
+     names = image_plugin.get_image_names(996699)
+     assert names == ["sunrise", "dawn", "sunset"]
+     mock_cursor.execute.assert_called_once_with(
+         "SELECT name FROM images WHERE chat_id = ?", (996699,)
+     )
+
+@pytest.mark.asyncio
+async def test_get_image_names_empty(image_plugin, mock_db):
+    mock_cursor = mock_db.mock_cursor
+    mock_cursor.fetchall.return_value = []
+    image_plugin.db_cursor = mock_cursor
+
+    names = image_plugin.get_image_names(996699)
+    assert names == []
+    mock_cursor.execute.assert_called_once_with(
+        "SELECT name FROM images WHERE chat_id = ?", (996699,)
+    )
+
+@pytest.mark.asyncio
+async def test_get_image_names_no_cursor(image_plugin):
+    image_plugin.db_cursor = None
+    names = image_plugin.get_image_names(996699)
+    assert names == []
