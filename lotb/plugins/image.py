@@ -1,4 +1,5 @@
 import random
+from typing import List
 
 import httpx
 from telegram import Update
@@ -9,7 +10,12 @@ from lotb.common.plugin_class import PluginBase
 
 class Plugin(PluginBase):
   def __init__(self):
-    super().__init__("image", "Save and recall images with /image <name> and <name>.img", require_auth=False)
+    super().__init__(
+      "image",
+      "Save images with /image <name> and recall them with <name>.img. \
+       Search for images using /image <term>, if no term passed list all the saved images.",
+      require_auth=False,
+    )
 
   def initialize(self):
     self.initialize_plugin()
@@ -21,6 +27,7 @@ class Plugin(PluginBase):
                 file_id TEXT NOT NULL
             )
         """)
+    self.execute_query("CREATE INDEX IF NOT EXISTS images_chat_id_index ON images (chat_id)")
     self.pattern_actions = {
       r"\b(\w+)\.img\b": self.recall_image,
     }
@@ -42,22 +49,27 @@ class Plugin(PluginBase):
     self.log_info("Images plugin initialized and table created.")
 
   async def execute(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if not update.effective_chat:
+      await self.reply_message(update, context, "Chat information is unavailable.")
+      return
+
+    chat_id = update.effective_chat.id
+
     if update.message and update.message.text:
       message_text = update.message.text.split(maxsplit=1)
       if len(message_text) > 1:
         command = message_text[0]
         term = message_text[1]
       else:
-        await self.reply_message(update, context, "Please provide a search term or reply to an image.")
+        image_names = self.get_image_names(chat_id)
+        if image_names:
+          message = "Available images:\n" + "\n".join(f"- {name}" for name in image_names)
+        else:
+          message = "No images saved yet, reply to an image with /image <name> to save one"
+        await self.reply_message(update, context, message)
         return
     else:
       await self.reply_message(update, context, "Please provide a search term or reply to an image.")
-      return
-
-    if update.effective_chat:
-      chat_id = update.effective_chat.id
-    else:
-      await self.reply_message(update, context, "Chat information is unavailable.")
       return
 
     if command == "/image":
@@ -78,11 +90,11 @@ class Plugin(PluginBase):
             await self.reply_message(update, context, f"No image found for term: {term}")
         except httpx.HTTPStatusError as e:
           if e.response.status_code == 500:
-            if update.message:
-              await update.message.reply_text("error occurred while fetching image from unsplash")
+            await self.reply_message(update, context, "error occurred while fetching image from unsplash")
             self.log_info(f"error searching for an image: {term}, HTTP status 500")
+            return
           else:
-            await update.message.reply_text(f"Unexpected error: {e}")
+            await self.reply_message(update, context, f"Unexpected error: {e}")
             self.log_info(f"Unexpected error searching for image: {term}, exception: {e}")
       else:
         await self.reply_message(update, context, "Image search is unavailable due to missing Unsplash keys.")
@@ -109,7 +121,7 @@ class Plugin(PluginBase):
           await self.reply_message(update, context, "Chat information is unavailable.")
       else:
         await self.reply_message(update, context, "No photo found in the message.")
-      await self.reply_message(update, context, f"Image saved with name: {name}")
+        return
 
   async def recall_image(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message and update.message.text:
@@ -129,6 +141,13 @@ class Plugin(PluginBase):
       await context.bot.send_photo(chat_id=update.effective_chat.id, photo=file_id)
     else:
       await self.reply_message(update, context, f"No image found with name: {name}")
+
+  def get_image_names(self, chat_id: int) -> List[str]:
+    if self.db_cursor:
+      self.db_cursor.execute("SELECT name FROM images WHERE chat_id = ?", (chat_id,))
+      results = self.db_cursor.fetchall()
+      return [result[0] for result in results] if results else []
+    return []
 
   def get_image(self, chat_id: int, name: str) -> str:
     if self.db_cursor:
