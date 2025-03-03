@@ -1,7 +1,8 @@
 # Lotb
 
-[![Coverage badge](https://github.com/brokenpip3/lotb/raw/python-coverage-comment-action-data/badge.svg)](https://github.com/brokenpip3/lotb/tree/python-coverage-comment-action-data)
+[![Coverage badge](https://img.shields.io/badge/dynamic/json?color=brightgreen&label=coverage&query=%24.message&url=https%3A%2F%2Fraw.githubusercontent.com%2Fbrokenpip3%2Flotb%2Fpython-coverage-comment-action-data%2Fendpoint.json)](https://htmlpreview.github.io/?https://github.com/brokenpip3/lotb/blob/python-coverage-comment-action-data/htmlcov/index.html)
 
+[![built with nix](https://builtwithnix.org/badge.svg)](https://builtwithnix.org)
 
 ![logo](logo.png)
 
@@ -124,10 +125,14 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
   accesskey = "your_access_key" # can be also set as env var: LOTB_PLUGINS_IMAGE_ACCESSKEY
   secretkey = "your_secret_key" # can be also set as env var: LOTB_PLUGINS_IMAGE_SECRETKEY
   ```
-* [SocialFix](./lotb/plugins/socialfix.py): A simple plugin that will fix twitter and instagram links to show the preview in telegram:
+* [SocialFix](./lotb/plugins/socialfix.py): A simple plugin that will fix twitter, instagram and reddit links to show the preview in telegram:
   ```toml
   [plugins.socialfix]
   enabled = true # enable or disable the plugin
+  instagram = true # enable or disable the instagram fix
+  twitter = true # enable or disable the twitter fix
+  reddit = true # enable or disable the reddit fix
+  ```
 * [Quote](./lotb/plugins/quote.py): A plugin that will let you save quotes in sqlite and retrieve them later. If no quoted message is provided,
   the plugin will return a random quote from the database:
   ```toml
