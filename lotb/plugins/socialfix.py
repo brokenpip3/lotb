@@ -12,13 +12,32 @@ class Plugin(PluginBase):
 
   def initialize(self):
     self.initialize_plugin()
-    self.pattern_actions = {
-      r"^https://x\.com/(.+)": self.create_pattern_handler(self.fix_twitter_link, r"^https://x\.com/(.+)"),
-      r"^https://www\.instagram\.com/(.+)": self.create_pattern_handler(
-        self.fix_instagram_link, r"^https://www\.instagram\.com/(.+)"
-      ),
+    self.pattern_actions = {}
+
+    twitter_enabled, instagram_enabled, reddit_enabled = [
+      # Support multiple ways of specifying true
+      str(self.config.get(f"plugins.{self.name}.{platform}", True)).lower() in ["true", "1", "yes", True]
+      for platform in ["twitter", "instagram", "reddit"]
+    ]
+
+    patterns = {
+      "twitter": (twitter_enabled, r"^https://x\.com/(.+)", self.fix_twitter_link),
+      "instagram": (instagram_enabled, r"^https://www\.instagram\.com/(.+)", self.fix_instagram_link),
+      "reddit": (reddit_enabled, r"^https://(?:www\.|old\.)?reddit\.com/(.+)", self.fix_reddit_link),
     }
+
+    self.pattern_actions.update(
+      {
+        pattern: self.create_pattern_handler(handler, pattern)
+        for enabled, pattern, handler in patterns.values()
+        if enabled
+      }
+    )
+
     self.log_info("social fix plugin initialized")
+    self.log_info(f"Twitter enabled: {twitter_enabled}")
+    self.log_info(f"Instagram enabled: {instagram_enabled}")
+    self.log_info(f"Reddit enabled: {reddit_enabled}")
 
   def create_pattern_handler(self, handler, pattern):
     async def handler_wrapper(u, c):
@@ -39,4 +58,9 @@ class Plugin(PluginBase):
   async def fix_instagram_link(self, update: Update, context: ContextTypes.DEFAULT_TYPE, match: re.Match):
     if match:
       fixed_url = f"https://www.ddinstagram.com/{match.group(1)}"
+      await self.reply_message(update, context, fixed_url)
+
+  async def fix_reddit_link(self, update: Update, context: ContextTypes.DEFAULT_TYPE, match: re.Match):
+    if match:
+      fixed_url = f"https://rxddit.com/{match.group(1)}"
       await self.reply_message(update, context, fixed_url)
