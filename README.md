@@ -1,6 +1,7 @@
 # Lotb
 
 [![Coverage badge](https://img.shields.io/badge/dynamic/json?color=brightgreen&label=coverage&query=%24.message&url=https%3A%2F%2Fraw.githubusercontent.com%2Fbrokenpip3%2Flotb%2Fpython-coverage-comment-action-data%2Fendpoint.json)](https://htmlpreview.github.io/?https://github.com/brokenpip3/lotb/blob/python-coverage-comment-action-data/htmlcov/index.html)
+![GitHub Actions Workflow Status](https://img.shields.io/github/actions/workflow/status/brokenpip3/lotb/ci.yaml)
 
 [![built with nix](https://builtwithnix.org/badge.svg)](https://builtwithnix.org)
 
