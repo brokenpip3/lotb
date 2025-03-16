@@ -19,15 +19,15 @@ jobs:
       contents: read
       packages: write
     steps:
-      - uses: DeterminateSystems/nix-installer-action@v16
+      - uses: DeterminateSystems/nix-installer-action@e50d5f73bfe71c2dd0aa4218de8f4afa59f8f81d # v16
         with:
           diagnostic-endpoint: ""
       # https://determinate.systems/posts/magic-nix-cache-free-tier-eol/
       #- uses: DeterminateSystems/magic-nix-cache-action@v8
       #  with:
       #    diagnostic-endpoint: ""
-      - uses: actions/checkout@v4
-      - uses: docker/login-action@v3
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4
+      - uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
