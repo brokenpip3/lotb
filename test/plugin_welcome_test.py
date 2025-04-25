@@ -36,11 +36,11 @@ def welcome_plugin(mock_config):
 @pytest.mark.asyncio
 async def test_welcome_plugin(mock_update, mock_context, welcome_plugin):
   await welcome_plugin.execute(mock_update, mock_context)
-  mock_update.message.reply_text.assert_called_once_with("Welcome: What is dead may never die", quote=True)
+  mock_update.message.reply_text.assert_called_once_with("Welcome: What is dead may never die", do_quote=True)
 
 
 @pytest.mark.asyncio
 async def test_welcome_plugin_no_message(mock_update, mock_context, welcome_plugin):
   mock_update.message.text = "/welcome"
   await welcome_plugin.execute(mock_update, mock_context)
-  mock_update.message.reply_text.assert_called_once_with("Welcome!", quote=True)
+  mock_update.message.reply_text.assert_called_once_with("Welcome!", do_quote=True)

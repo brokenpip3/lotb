@@ -41,7 +41,7 @@ async def test_memo_generic(mock_update, mock_context, memo_plugin, mock_config)
     await memo_plugin.execute(mock_update, mock_context)
     mock_get_path.assert_called_once_with("generic_memo")
     mock_append.assert_called_once_with("generic_memo_2024_06_15.md", "I don't even remember my own name", "\n\n- ")
-    mock_update.message.reply_text.assert_called_once_with("Message saved to generic.", quote=True)
+    mock_update.message.reply_text.assert_called_once_with("Message saved to generic.", do_quote=True)
 
 
 @pytest.mark.asyncio
@@ -55,7 +55,7 @@ async def test_memo_todo(mock_update, mock_context, memo_plugin):
     mock_append.assert_called_once_with(
       "todo_memo_2024_06_15.md", "I neeed to remember to do what I need to do", "\n\n- TODO "
     )
-    mock_update.message.reply_text.assert_called_once_with("Message saved to todo.", quote=True)
+    mock_update.message.reply_text.assert_called_once_with("Message saved to todo.", do_quote=True)
 
 
 @pytest.mark.asyncio
@@ -64,7 +64,7 @@ async def test_memo_book(mock_update, mock_context, memo_plugin):
   with patch("lotb.plugins.memo.Plugin.append_to_file") as mock_append:
     await memo_plugin.execute(mock_update, mock_context)
     mock_append.assert_called_once_with("book_memo", "I need to read this great book: 1984 - Orwell", "\n\n- ")
-    mock_update.message.reply_text.assert_called_once_with("Message saved to book.", quote=True)
+    mock_update.message.reply_text.assert_called_once_with("Message saved to book.", do_quote=True)
 
 
 @pytest.mark.asyncio
@@ -73,7 +73,7 @@ async def test_memo_series(mock_update, mock_context, memo_plugin):
   with patch("lotb.plugins.memo.Plugin.append_to_file") as mock_append:
     await memo_plugin.execute(mock_update, mock_context)
     mock_append.assert_called_once_with("series_memo", "I need another HBO ones", "\n\n- ")
-    mock_update.message.reply_text.assert_called_once_with("Message saved to series.", quote=True)
+    mock_update.message.reply_text.assert_called_once_with("Message saved to series.", do_quote=True)
 
 
 @pytest.mark.asyncio
@@ -82,7 +82,7 @@ async def test_memo_film(mock_update, mock_context, memo_plugin):
   with patch("lotb.plugins.memo.Plugin.append_to_file") as mock_append:
     await memo_plugin.execute(mock_update, mock_context)
     mock_append.assert_called_once_with("film_memo", "Yet another marvel movie", "\n\n- ")
-    mock_update.message.reply_text.assert_called_once_with("Message saved to film.", quote=True)
+    mock_update.message.reply_text.assert_called_once_with("Message saved to film.", do_quote=True)
 
 
 @pytest.mark.asyncio
@@ -105,4 +105,4 @@ async def test_memo_quoted_message(mock_update, mock_context, memo_plugin):
     await memo_plugin.execute(mock_update, mock_context)
     mock_get_path.assert_called_once_with("todo_memo")
     mock_append.assert_called_once_with("todo_memo_2024_06_15.md", "This is a quoted todo memo", "\n\n- TODO ")
-    mock_update.message.reply_text.assert_called_once_with("Message saved to todo.", quote=True)
+    mock_update.message.reply_text.assert_called_once_with("Message saved to todo.", do_quote=True)

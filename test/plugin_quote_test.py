@@ -38,7 +38,7 @@ async def test_add_quote_success(mock_update, mock_context, mock_db, plugin):
     "INSERT INTO quotes (user_id, chat_id, quote) VALUES (?, ?, ?)",
     (4815162342, 996699, "Try to be a rainbow in someone's cloud\n\n- Maya Angelou"),
   )
-  mock_update.message.reply_text.assert_awaited_once_with("Quote added successfully", quote=True)
+  mock_update.message.reply_text.assert_awaited_once_with("Quote added successfully", do_quote=True)
 
 
 @pytest.mark.asyncio
@@ -48,7 +48,7 @@ async def test_add_quote_no_reply(mock_update, mock_context, mock_db, plugin):
   mock_db.fetchall.return_value = []
   await plugin.execute(mock_update, mock_context)
   mock_db.execute.assert_called_once_with("SELECT quote FROM quotes WHERE chat_id = ?", (996699,))
-  mock_update.message.reply_text.assert_awaited_once_with("No quotes available", quote=True)
+  mock_update.message.reply_text.assert_awaited_once_with("No quotes available", do_quote=True)
 
 
 @pytest.mark.asyncio
@@ -77,7 +77,7 @@ async def test_get_quote_no_match(mock_update, mock_context, mock_db, plugin):
   mock_db.execute.assert_called_once_with(
     "SELECT quote FROM quotes WHERE quote LIKE ? AND chat_id = ?", ("%shamalaia%", 996699)
   )
-  mock_update.message.reply_text.assert_awaited_once_with("No quotes found containing that term", quote=True)
+  mock_update.message.reply_text.assert_awaited_once_with("No quotes found containing that term", do_quote=True)
 
 
 @pytest.mark.asyncio
@@ -87,7 +87,7 @@ async def test_with_no_term_only_space_no_quote_available(mock_update, mock_cont
   mock_db.fetchall.return_value = []
   await plugin.execute(mock_update, mock_context)
   mock_db.execute.assert_called_once_with("SELECT quote FROM quotes WHERE chat_id = ?", (996699,))
-  mock_update.message.reply_text.assert_awaited_once_with("No quotes available", quote=True)
+  mock_update.message.reply_text.assert_awaited_once_with("No quotes available", do_quote=True)
 
 
 @pytest.mark.asyncio
@@ -112,14 +112,14 @@ async def test_with_no_term_only_space_return_quote(mock_update, mock_context, m
 async def test_add_missing_user(mock_update, mock_context, plugin):
   mock_update.effective_user = None
   await plugin.add_quote(mock_update, mock_context, "Some quote")
-  mock_update.message.reply_text.assert_awaited_once_with("User information is missing.", quote=True)
+  mock_update.message.reply_text.assert_awaited_once_with("User information is missing.", do_quote=True)
 
 
 @pytest.mark.asyncio
 async def test_add_missing_chat(mock_update, mock_context, plugin):
   mock_update.effective_chat = None
   await plugin.add_quote(mock_update, mock_context, "Some quote")
-  mock_update.message.reply_text.assert_awaited_once_with("Chat information is missing.", quote=True)
+  mock_update.message.reply_text.assert_awaited_once_with("Chat information is missing.", do_quote=True)
 
 
 @pytest.mark.asyncio

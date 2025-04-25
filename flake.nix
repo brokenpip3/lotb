@@ -77,13 +77,13 @@
         devShells.default = pkgs.mkShell {
           inputsFrom = [ self.packages.${system}.lotb ];
           packages = with pkgs; [
-            python312
+            python313
             poetry
             pre-commit
             ruff
             mypy
-            python312Packages.pytest-cov
-            python312Packages.flake8
+            python313Packages.pytest-cov
+            python313Packages.flake8
             go-task
           ];
           PYTHONDONTWRITEBYTECODE = 1;
