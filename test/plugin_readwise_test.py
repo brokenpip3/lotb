@@ -60,7 +60,7 @@ async def test_save_url(mock_httpx_client, mock_httpx_async, mock_update, mock_c
   plugin.set_config(mock_config)
   plugin.initialize()
   await plugin.execute(mock_update, mock_context)
-  mock_update.message.reply_text.assert_called_once_with("URL saved to Readwise successfully.", quote=True)
+  mock_update.message.reply_text.assert_called_once_with("URL saved to Readwise successfully.", do_quote=True)
 
 
 @pytest.mark.asyncio
@@ -81,7 +81,7 @@ async def test_readwise_article_already_exist(
   plugin.set_config(mock_config)
   plugin.initialize()
   await plugin.execute(mock_update, mock_context)
-  mock_update.message.reply_text.assert_called_once_with("URL already exists in your Readwise archive.", quote=True)
+  mock_update.message.reply_text.assert_called_once_with("URL already exists in your Readwise archive.", do_quote=True)
 
 
 @pytest.mark.asyncio
@@ -114,7 +114,7 @@ async def test_readwise_no_url(mock_httpx_client, mock_httpx_async, mock_update,
   plugin.initialize()
   mock_update.message.text = "/readwise"
   await plugin.execute(mock_update, mock_context)
-  mock_update.message.reply_text.assert_called_once_with("Missing URL argument for Readwise command.", quote=True)
+  mock_update.message.reply_text.assert_called_once_with("Missing URL argument for Readwise command.", do_quote=True)
 
 
 @pytest.mark.asyncio
@@ -132,4 +132,4 @@ async def test_readwise_failed_to_save(mock_httpx_client, mock_httpx_async, mock
   plugin.set_config(mock_config)
   plugin.initialize()
   await plugin.execute(mock_update, mock_context)
-  mock_update.message.reply_text.assert_called_once_with("Failed to save URL to Readwise.", quote=True)
+  mock_update.message.reply_text.assert_called_once_with("Failed to save URL to Readwise.", do_quote=True)

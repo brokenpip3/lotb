@@ -84,7 +84,7 @@ class PluginBase:
 
   async def reply_quote_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE, message: str):
     if update.message:
-      await update.message.reply_text(message, quote=True)
+      await update.message.reply_text(message, do_quote=True)
 
   def log_info(self, message: str):
     logging.info(f"[{self.name}] {message}")
