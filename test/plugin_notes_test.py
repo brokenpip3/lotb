@@ -96,4 +96,6 @@ async def test_invalid_subcommand(mock_update, mock_context, mock_db, mock_confi
   plugin.initialize()
   mock_update.message.text = "/notes invalid"
   await plugin.execute(mock_update, mock_context)
-  mock_update.message.reply_text.assert_called_once_with("Invalid notes subcommand or missing arguments.", do_quote=True)
+  mock_update.message.reply_text.assert_called_once_with(
+    "Invalid notes subcommand or missing arguments.", do_quote=True
+  )
