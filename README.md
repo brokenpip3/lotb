@@ -140,6 +140,12 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
   [plugins.quote]
   enabled = true # enable or disable the plugin
   ```
+* [remindme](./lotb/plugins/remindme.py): A plugin that will let you set reminders for a specific message like the reddit bot.
+  The plugin will send a message to the chat after the specified time (s,m,h,d,w,M,y) with the original quoted message.
+  ```toml
+  [plugins.remindme]
+  enabled = true # enable or disable the plugin
+  ```
 
 ### How to add a plugin? What helper methods are available?
 
