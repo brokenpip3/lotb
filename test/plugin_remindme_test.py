@@ -12,6 +12,7 @@ from lotb.plugins.remindme import Plugin
 def remindme_plugin(mock_db):
   plugin = Plugin()
   plugin.set_config(MagicMock())
+  plugin.log_error = MagicMock()
   plugin.initialize()
   return plugin
 
@@ -126,3 +127,73 @@ async def test_set_job_queue(mock_db, remindme_plugin):
   job_queue.run_once.assert_called_once()
   assert job_queue.run_once.call_args[1]["name"] == "reminder_10"
   assert job_queue.run_once.call_args[1]["data"]["requester_username"] == "random-unique-user"
+
+
+@pytest.mark.asyncio
+async def test_remindme_invalid_unit(mock_update, mock_context, remindme_plugin):
+  mock_update.message.text = "/remindme 5x test"
+  mock_update.message.reply_to_message = MagicMock(text="this message maybe exist in another timeline", message_id=10)
+
+  await remindme_plugin.execute(mock_update, mock_context)
+  mock_update.message.reply_text.assert_called_once_with(
+    "invalid format. Use: /remindme <time><unit> [optional note]\n"
+    "units: m=minutes, h=hours, d=days, w=weeks, M=months, y=years"
+  )
+
+
+@pytest.mark.asyncio
+async def test_send_reminder_invalid_job_data(mock_context, remindme_plugin):
+  class InvalidJob:
+    def __init__(self):
+      self.chat_id = None
+      self.data = "invalid"
+  context = mock_context
+  context.job = InvalidJob()
+
+  await remindme_plugin._send_reminder(context)
+  remindme_plugin.log_error.assert_called_once_with("invalid job data format")
+
+
+@pytest.mark.asyncio
+async def test_send_reminder_missing_chat_id(mock_context, remindme_plugin):
+  class NoChatJob:
+    def __init__(self):
+      self.data = {"message": "test", "original_message_id": 14711789, "requester_username": "another random user"}
+  context = mock_context
+  context.job = NoChatJob()
+
+  await remindme_plugin._send_reminder(context)
+  remindme_plugin.log_error.assert_called_once_with("missing chat_id in job, this should not happen")
+
+
+@pytest.mark.asyncio
+async def test_send_reminder_database_error(mock_context, remindme_plugin, mock_db):
+  class SimpleJob:
+    def __init__(self):
+      self.chat_id = 123
+      self.data = {"message": "test", "original_message_id": 14071789, "requester_username": "another random user"}
+  mock_db.execute.side_effect = Exception("DB error")
+  context = mock_context
+  context.job = SimpleJob()
+
+  await remindme_plugin._send_reminder(context)
+  remindme_plugin.log_error.assert_called_with("failed to send reminder: DB error")
+
+
+@pytest.mark.asyncio
+async def test_set_job_queue_database_error(remindme_plugin, mock_db):
+  mock_db.execute.side_effect = Exception("DB error")
+  job_queue = MagicMock()
+
+  remindme_plugin.set_job_queue(job_queue)
+  remindme_plugin.log_error.assert_called_once_with("no database available")
+
+
+@pytest.mark.asyncio
+async def test_remindme_database_error(mock_update, mock_context, remindme_plugin, mock_db):
+  mock_update.message.text = "/remindme 5m test"
+  mock_update.message.reply_to_message = MagicMock(text="this message maybe exist in another timeline", message_id=10)
+  mock_db.execute.side_effect = Exception("DB error")
+
+  await remindme_plugin.execute(mock_update, mock_context)
+  remindme_plugin.log_error.assert_called_once_with("failed to set reminder: DB error")

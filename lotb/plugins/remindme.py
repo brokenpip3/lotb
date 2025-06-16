@@ -59,27 +59,41 @@ class Plugin(PluginBase):
       return
 
     amount, unit, note = match.groups()
-    amount = int(amount)
-    delta = self._get_time_delta(amount, unit)
-    if not delta:
+    if unit not in ["m", "h", "d", "w", "M", "y"]:
       await self.reply_message(update, context, f"invalid time unit: {unit}")
       return
 
-    remind_at = datetime.now() + delta
+    try:
+      amount = int(amount)
+      delta = self._get_time_delta(amount, unit)
+      remind_at = datetime.now() + delta
+    except (ValueError, KeyError):
+      await self.reply_message(
+        update,
+        context,
+        "invalid format. Use: /remindme <time><unit> [optional note]\n"
+        "units: m=minutes, h=hours, d=days, w=weeks, M=months, y=years",
+      )
+      return
     message = note if note else update.message.reply_to_message.text or ""
 
-    self.execute_query(
-      "INSERT INTO reminders (chat_id, user_id, message, remind_at, original_message_id, requester_username) "
-      "VALUES (?, ?, ?, ?, ?, ?)",
-      (
-        update.effective_chat.id,
-        update.effective_user.id,
-        message,
-        remind_at,
-        update.message.reply_to_message.message_id,
-        update.effective_user.username or str(update.effective_user.id),
-      ),
-    )
+    try:
+      self.execute_query(
+        "INSERT INTO reminders (chat_id, user_id, message, remind_at, original_message_id, requester_username) "
+        "VALUES (?, ?, ?, ?, ?, ?)",
+        (
+          update.effective_chat.id,
+          update.effective_user.id,
+          message,
+          remind_at,
+          update.message.reply_to_message.message_id,
+          update.effective_user.username or str(update.effective_user.id),
+        ),
+      )
+    except Exception as e:
+      self.log_error(f"failed to set reminder: {e}")
+      await self.reply_message(update, context, "failed to set reminder due to database error")
+      return
 
     await self.reply_message(
       update, context, f"reminder set for {amount}{unit} from now ({remind_at.strftime('%Y-%m-%d %H:%M')})"
@@ -100,7 +114,7 @@ class Plugin(PluginBase):
         },
       )
 
-  def _get_time_delta(self, amount: int, unit: str) -> Optional[timedelta]:
+  def _get_time_delta(self, amount: int, unit: str) -> timedelta:
     unit_map: Dict[str, timedelta] = {
       "m": timedelta(minutes=amount),
       "h": timedelta(hours=amount),
@@ -109,7 +123,7 @@ class Plugin(PluginBase):
       "M": timedelta(days=30 * amount),
       "y": timedelta(days=365 * amount),
     }
-    return unit_map.get(unit)
+    return unit_map[unit]  # Will raise KeyError for invalid units
 
   async def _send_reminder(self, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not context.job:
@@ -150,27 +164,31 @@ class Plugin(PluginBase):
       self.log_error("no database available")
       return
 
-    self.db_cursor.execute(
-      "SELECT chat_id, user_id, message, remind_at, original_message_id, requester_username FROM reminders "
-      "WHERE remind_at > datetime('now')"
-    )
-    results = self.db_cursor.fetchall()
-    if not results:
-      return
+    try:
+      self.db_cursor.execute(
+        "SELECT chat_id, user_id, message, remind_at, original_message_id, requester_username FROM reminders "
+        "WHERE remind_at > datetime('now')"
+      )
+      results = self.db_cursor.fetchall()
+      if not results:
+        return
 
-    for row in results:
-      chat_id, user_id, message, remind_at, original_message_id, requester_username = row
-      delta = datetime.strptime(remind_at, "%Y-%m-%d %H:%M:%S") - datetime.now()
-      if delta.total_seconds() > 0:
-        job_queue.run_once(
-          self._send_reminder,
-          delta,
-          chat_id=chat_id,
-          user_id=user_id,
-          name=f"reminder_{original_message_id}",
-          data={
-            "message": message,
-            "original_message_id": original_message_id,
-            "requester_username": requester_username,
-          },
-        )
+      for row in results:
+        chat_id, user_id, message, remind_at, original_message_id, requester_username = row
+        delta = datetime.strptime(remind_at, "%Y-%m-%d %H:%M:%S") - datetime.now()
+        if delta.total_seconds() > 0:
+          job_queue.run_once(
+            self._send_reminder,
+            delta,
+            chat_id=chat_id,
+            user_id=user_id,
+            name=f"reminder_{original_message_id}",
+            data={
+              "message": message,
+              "original_message_id": original_message_id,
+              "requester_username": requester_username,
+            },
+          )
+    except Exception:
+      self.log_error("no database available")
+      return
