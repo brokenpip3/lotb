@@ -35,9 +35,10 @@ def memo_plugin(mock_config):
 @pytest.mark.asyncio
 async def test_memo_generic(mock_update, mock_context, memo_plugin, mock_config):
   mock_update.message.text = "/memo I don't even remember my own name"
-  with patch(
-    "lotb.plugins.memo.Plugin.get_daily_file_path", return_value="generic_memo_2024_06_15.md"
-  ) as mock_get_path, patch("lotb.plugins.memo.Plugin.append_to_file") as mock_append:
+  with (
+    patch("lotb.plugins.memo.Plugin.get_daily_file_path", return_value="generic_memo_2024_06_15.md") as mock_get_path,
+    patch("lotb.plugins.memo.Plugin.append_to_file") as mock_append,
+  ):
     await memo_plugin.execute(mock_update, mock_context)
     mock_get_path.assert_called_once_with("generic_memo")
     mock_append.assert_called_once_with("generic_memo_2024_06_15.md", "I don't even remember my own name", "\n\n- ")
@@ -47,9 +48,10 @@ async def test_memo_generic(mock_update, mock_context, memo_plugin, mock_config)
 @pytest.mark.asyncio
 async def test_memo_todo(mock_update, mock_context, memo_plugin):
   mock_update.message.text = "/memo to-do I neeed to remember to do what I need to do"
-  with patch(
-    "lotb.plugins.memo.Plugin.get_daily_file_path", return_value="todo_memo_2024_06_15.md"
-  ) as mock_get_path, patch("lotb.plugins.memo.Plugin.append_to_file") as mock_append:
+  with (
+    patch("lotb.plugins.memo.Plugin.get_daily_file_path", return_value="todo_memo_2024_06_15.md") as mock_get_path,
+    patch("lotb.plugins.memo.Plugin.append_to_file") as mock_append,
+  ):
     await memo_plugin.execute(mock_update, mock_context)
     mock_get_path.assert_called_once_with("todo_memo")
     mock_append.assert_called_once_with(
@@ -99,9 +101,10 @@ async def test_memo_quoted_message(mock_update, mock_context, memo_plugin):
   mock_update.message.reply_to_message = MagicMock(spec=Message)
   mock_update.message.reply_to_message.text = "to-do This is a quoted todo memo"
   mock_update.message.text = "/memo"
-  with patch(
-    "lotb.plugins.memo.Plugin.get_daily_file_path", return_value="todo_memo_2024_06_15.md"
-  ) as mock_get_path, patch("lotb.plugins.memo.Plugin.append_to_file") as mock_append:
+  with (
+    patch("lotb.plugins.memo.Plugin.get_daily_file_path", return_value="todo_memo_2024_06_15.md") as mock_get_path,
+    patch("lotb.plugins.memo.Plugin.append_to_file") as mock_append,
+  ):
     await memo_plugin.execute(mock_update, mock_context)
     mock_get_path.assert_called_once_with("todo_memo")
     mock_append.assert_called_once_with("todo_memo_2024_06_15.md", "This is a quoted todo memo", "\n\n- TODO ")
