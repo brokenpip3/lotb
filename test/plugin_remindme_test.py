@@ -22,7 +22,6 @@ async def test_remindme_minutes(mock_update, mock_context, remindme_plugin):
   mock_update.message.text = "/remindme 5m test"
   mock_update.message.message_id = 14071789
   mock_update.message.reply_to_message = MagicMock(text="I need to reply to this not important message", message_id=10)
-  mock_update.effective_chat.id = mock_update.effective_chat.id
   mock_update.effective_user.username = "random-unique-user"
 
   with patch("lotb.plugins.remindme.datetime") as mock_datetime:
