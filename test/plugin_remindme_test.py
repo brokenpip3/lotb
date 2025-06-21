@@ -146,6 +146,7 @@ async def test_send_reminder_invalid_job_data(mock_context, remindme_plugin):
     def __init__(self):
       self.chat_id = None
       self.data = "invalid"
+
   context = mock_context
   context.job = InvalidJob()
 
@@ -158,6 +159,7 @@ async def test_send_reminder_missing_chat_id(mock_context, remindme_plugin):
   class NoChatJob:
     def __init__(self):
       self.data = {"message": "test", "original_message_id": 14711789, "requester_username": "another random user"}
+
   context = mock_context
   context.job = NoChatJob()
 
@@ -171,6 +173,7 @@ async def test_send_reminder_database_error(mock_context, remindme_plugin, mock_
     def __init__(self):
       self.chat_id = 123
       self.data = {"message": "test", "original_message_id": 14071789, "requester_username": "another random user"}
+
   mock_db.execute.side_effect = Exception("DB error")
   context = mock_context
   context.job = SimpleJob()

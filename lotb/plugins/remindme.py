@@ -2,7 +2,6 @@ import re
 from datetime import datetime
 from datetime import timedelta
 from typing import Dict
-from typing import Optional
 
 from telegram import Update
 from telegram.ext import ContextTypes
