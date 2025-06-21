@@ -23,6 +23,10 @@ def mock_update():
   chat.id = 996699
   message.reply_text = AsyncMock()
   message.reply_to_message = None
+  message.photo = None
+  message.animation = None
+  message.sticker = None
+
   return update
 
 

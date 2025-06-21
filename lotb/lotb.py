@@ -84,10 +84,10 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
       return
 
 
-async def photo_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
   for plugin in plugins.values():
-    if hasattr(plugin, "handle_photo"):
-      await plugin.handle_photo(update, context)
+    if hasattr(plugin, "handle_media"):
+      await plugin.handle_media(update, context)
 
 
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -204,7 +204,7 @@ def main():
       plugin.set_job_queue(job_queue)
 
   application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_message))
-  application.add_handler(MessageHandler(filters.PHOTO, photo_handler))
+  application.add_handler(MessageHandler(filters.PHOTO | filters.ANIMATION, handle_media))
   application.add_handler(CommandHandler("help", help_command))
   application.add_handler(CommandHandler("enable", lambda update, context: enable_plugin(update, context, config)))
   application.add_handler(CommandHandler("disable", disable_plugin))
