@@ -119,8 +119,8 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
   series = "" # path to the series memo file
   film = "" # path to the film memo file
   ```
-* [Images](./lotb/plugins/images.py): A plugin that will let you save image ids in sqlite and call it in a group chat with `imagename.img` or search
-  for images with `/image search term` using Unsplash. If no term is provided, the plugin will return the list of images saved in the database:
+* [Images](./lotb/plugins/images.py): A plugin that will let you save images/gifs/stickers ids in sqlite and call it in a group chat with
+  `name.<type>` (img,gif,stk) or search for images with `/image search term` using Unsplash. If no term is provided, the plugin will return the list of images saved in the database:
   ```toml
   [plugins.image]
   accesskey = "your_access_key" # can be also set as env var: LOTB_PLUGINS_IMAGE_ACCESSKEY
