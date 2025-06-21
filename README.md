@@ -5,20 +5,20 @@
 | Name                               |    Stmts |     Miss |   Cover |   Missing |
 |----------------------------------- | -------: | -------: | ------: | --------: |
 | lotb/common/config.py              |       33 |        0 |    100% |           |
-| lotb/common/plugin\_class.py       |       96 |        6 |     94% |29, 59, 69, 93, 99, 120 |
+| lotb/common/plugin\_class.py       |       96 |        5 |     95% |29, 59, 69, 99, 120 |
 | lotb/common/version.py             |        2 |        2 |      0% |       1-3 |
 | lotb/lotb.py                       |      162 |       79 |     51% |31-51, 58-59, 76-78, 82-84, 88-90, 120-130, 145-150, 161-170, 174-212, 216 |
-| lotb/plugins/image.py              |      119 |       26 |     78% |39-42, 72-73, 91-100, 103-104, 131-132, 137-138, 153-158 |
+| lotb/plugins/image.py              |      165 |       21 |     87% |36-39, 90-91, 107-108, 130-133, 136-139, 188-189, 209-216 |
 | lotb/plugins/memo.py               |       83 |       14 |     83% |63, 85-86, 89-90, 125-128, 134-135, 143-144, 156 |
 | lotb/plugins/notes.py              |       64 |       12 |     81% |30-31, 40-41, 47-48, 60-61, 81-82, 87, 104 |
 | lotb/plugins/prometheus\_alerts.py |       95 |       16 |     83% |23, 40-42, 81-82, 88-89, 110, 114-119, 141-142 |
 | lotb/plugins/quote.py              |       77 |        2 |     97% |   118-120 |
 | lotb/plugins/readwise.py           |       50 |        4 |     92% |     55-59 |
-| lotb/plugins/remindme.py           |       93 |       12 |     87% |41-44, 63-64, 70-77, 130-131, 164-165, 174 |
+| lotb/plugins/remindme.py           |       92 |       12 |     87% |40-43, 62-63, 69-76, 129-130, 163-164, 173 |
 | lotb/plugins/rssfeed.py            |       60 |       10 |     83% |22, 24, 30, 71-73, 76-81, 87 |
 | lotb/plugins/socialfix.py          |       37 |        0 |    100% |           |
 | lotb/plugins/welcome.py            |       17 |        0 |    100% |           |
-|                          **TOTAL** |  **988** |  **183** | **81%** |           |
+|                          **TOTAL** | **1033** |  **177** | **83%** |           |
 
 3 empty files skipped.
 
