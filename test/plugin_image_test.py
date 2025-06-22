@@ -152,21 +152,30 @@ async def test_unsplash_search_no_results(mock_update, mock_context, image_plugi
 
 
 @pytest.mark.asyncio
-async def test_list_images(mock_update, mock_context, image_plugin):
+async def test_list_images_grouped(mock_update, mock_context, image_plugin):
   mock_update.message.text = "/image"
 
   with patch(
     "lotb.plugins.image.Plugin.get_media_list",
-    return_value=[("sunrise", "photo"), ("dancing", "gif"), ("cool", "sticker")],
+    return_value=[("sunrise", "photo"), ("dancing", "gif"), ("cool", "sticker"), ("sunset", "photo"), ("funny", "gif")],
   ) as mock_get_media:
     await image_plugin.execute(mock_update, mock_context)
     mock_get_media.assert_called_once_with(mock_update.effective_chat.id)
 
     args, kwargs = mock_update.message.reply_text.call_args
-    assert "Saved media:" in args[0]
-    assert "sunrise.img" in args[0]
-    assert "dancing.gif" in args[0]
-    assert "cool.stk" in args[0]
+    response = args[0]
+    assert "📁 Saved media:" in response
+    assert "📷 images:" in response
+    assert "  • sunrise" in response
+    assert "  • sunset" in response
+    assert "🎬 gif:" in response
+    assert "  • dancing" in response
+    assert "  • funny" in response
+    assert "🖼️ stickers:" in response
+    assert "  • cool" in response
+    assert response.find("📷 images") < response.find("🎬 gif") < response.find("🖼️ stickers")
+    assert response.find("sunrise") < response.find("sunset")
+    assert response.find("dancing") < response.find("funny")
 
 
 @pytest.mark.asyncio
@@ -332,6 +341,52 @@ async def test_recall_image_invalid_pattern(mock_update, mock_context, image_plu
   mock_update.message.text = "invalid.pattern"
   await image_plugin.recall_image(mock_update, mock_context)
   mock_update.message.reply_text.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_duplicate_name_error(mock_update, mock_context, image_plugin):
+  mock_update.message.text = "/image IronMan"
+  mock_update.message.reply_to_message = MagicMock(spec=Message)
+  mock_update.message.reply_to_message.photo = [MagicMock(spec=PhotoSize, file_id="file_id_ironman")]
+  mock_update.message.reply_to_message.animation = None
+  mock_update.message.reply_to_message.sticker = None
+
+  await image_plugin.execute(mock_update, mock_context)
+  mock_update.message.reply_text.assert_called_with("photo saved with name: IronMan")
+
+  mock_update.message.reply_text.reset_mock()
+  await image_plugin.execute(mock_update, mock_context)
+  mock_update.message.reply_text.assert_called_with("A photo named 'IronMan' already exists, use a different name.")
+
+
+@pytest.mark.asyncio
+async def test_handle_media_duplicate_name(mock_update, mock_context, image_plugin):
+  mock_update.message.caption = "/image sunrise"
+  mock_update.message.photo = [MagicMock(spec=PhotoSize, file_id="abcde")]
+  await image_plugin.handle_media(mock_update, mock_context)
+
+  mock_update.message.reply_text.reset_mock()
+  await image_plugin.handle_media(mock_update, mock_context)
+  mock_update.message.reply_text.assert_called_with("A photo named 'sunrise' already exists, use a different name.")
+
+
+@pytest.mark.asyncio
+async def test_different_types_same_name(mock_update, mock_context, image_plugin):
+  mock_update.message.text = "/image cat"
+  mock_update.message.reply_to_message = MagicMock(spec=Message)
+  mock_update.message.reply_to_message.photo = [MagicMock(spec=PhotoSize, file_id="photo_cat")]
+  mock_update.message.reply_to_message.animation = None
+  mock_update.message.reply_to_message.sticker = None
+  await image_plugin.execute(mock_update, mock_context)
+  mock_update.message.reply_text.assert_called_with("photo saved with name: cat")
+
+  mock_update.message.reply_text.reset_mock()
+  mock_update.message.text = "/image cat"
+  mock_update.message.reply_to_message.photo = None
+  mock_update.message.reply_to_message.animation = MagicMock(spec=Animation, file_id="gif_cat")
+  mock_update.message.reply_to_message.sticker = None
+  await image_plugin.execute(mock_update, mock_context)
+  mock_update.message.reply_text.assert_called_with("gif saved with name: cat")
 
 
 @pytest.mark.asyncio
