@@ -335,6 +335,52 @@ async def test_recall_image_invalid_pattern(mock_update, mock_context, image_plu
 
 
 @pytest.mark.asyncio
+async def test_duplicate_name_error(mock_update, mock_context, image_plugin):
+  mock_update.message.text = "/image IronMan"
+  mock_update.message.reply_to_message = MagicMock(spec=Message)
+  mock_update.message.reply_to_message.photo = [MagicMock(spec=PhotoSize, file_id="file_id_ironman")]
+  mock_update.message.reply_to_message.animation = None
+  mock_update.message.reply_to_message.sticker = None
+
+  await image_plugin.execute(mock_update, mock_context)
+  mock_update.message.reply_text.assert_called_with("photo saved with name: IronMan")
+
+  mock_update.message.reply_text.reset_mock()
+  await image_plugin.execute(mock_update, mock_context)
+  mock_update.message.reply_text.assert_called_with("A photo named 'IronMan' already exists, use a different name.")
+
+
+@pytest.mark.asyncio
+async def test_handle_media_duplicate_name(mock_update, mock_context, image_plugin):
+  mock_update.message.caption = "/image sunrise"
+  mock_update.message.photo = [MagicMock(spec=PhotoSize, file_id="abcde")]
+  await image_plugin.handle_media(mock_update, mock_context)
+
+  mock_update.message.reply_text.reset_mock()
+  await image_plugin.handle_media(mock_update, mock_context)
+  mock_update.message.reply_text.assert_called_with("A photo named 'sunrise' already exists, use a different name.")
+
+
+@pytest.mark.asyncio
+async def test_different_types_same_name(mock_update, mock_context, image_plugin):
+  mock_update.message.text = "/image cat"
+  mock_update.message.reply_to_message = MagicMock(spec=Message)
+  mock_update.message.reply_to_message.photo = [MagicMock(spec=PhotoSize, file_id="photo_cat")]
+  mock_update.message.reply_to_message.animation = None
+  mock_update.message.reply_to_message.sticker = None
+  await image_plugin.execute(mock_update, mock_context)
+  mock_update.message.reply_text.assert_called_with("photo saved with name: cat")
+
+  mock_update.message.reply_text.reset_mock()
+  mock_update.message.text = "/image cat"
+  mock_update.message.reply_to_message.photo = None
+  mock_update.message.reply_to_message.animation = MagicMock(spec=Animation, file_id="gif_cat")
+  mock_update.message.reply_to_message.sticker = None
+  await image_plugin.execute(mock_update, mock_context)
+  mock_update.message.reply_text.assert_called_with("gif saved with name: cat")
+
+
+@pytest.mark.asyncio
 async def test_unsplash_search_random_image(mock_update, mock_context, image_plugin):
   mock_update.message.text = "/image random"
 

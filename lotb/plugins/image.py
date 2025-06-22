@@ -108,8 +108,13 @@ class Plugin(PluginBase):
           return
 
         name = term
-        self.save_image(chat_id, name, file_id, file_type)
-        await self.reply_message(update, context, f"{file_type} saved with name: {name}")
+        if self.save_image(chat_id, name, file_id, file_type):
+          await self.reply_message(update, context, f"{file_type} saved with name: {name}")
+        else:
+          await self.reply_message(
+            update, context, f"A {file_type} named '{name}' already exists, use a different name."
+          )
+          self.log_info(f"image with name: {name} already exists for chat {chat_id}, not saving")
         return
       elif self.unsplash_auth:
         self.log_info(f"Searching for image with term: {term}")
@@ -132,11 +137,16 @@ class Plugin(PluginBase):
       else:
         await self.reply_message(update, context, "Image search is unavailable due to missing Unsplash keys.")
 
-  def save_image(self, chat_id: int, name: str, file_id: str, file_type: str):
+  def save_image(self, chat_id: int, name: str, file_id: str, file_type: str) -> bool:
+    existing = self.get_image(chat_id, name, file_type)
+    if existing:
+      return False
+
     self.execute_query(
       "INSERT INTO images (chat_id, name, file_id, file_type) VALUES (?, ?, ?, ?)", (chat_id, name, file_id, file_type)
     )
     self.log_info(f"image saved for chat {chat_id} with name: {name}, type: {file_type} and file_id: {file_id}")
+    return True
 
   async def handle_media(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message and update.message.caption and update.message.caption.startswith("/image"):
@@ -165,8 +175,10 @@ class Plugin(PluginBase):
           await self.reply_message(update, context, "No media found in the message.")
           return
 
-      self.save_image(update.effective_chat.id, name, file_id, file_type)
-      await self.reply_message(update, context, f"Saved with name: {name}")
+      if self.save_image(update.effective_chat.id, name, file_id, file_type):
+        await self.reply_message(update, context, f"Saved with name: {name}")
+      else:
+        await self.reply_message(update, context, f"A {file_type} named '{name}' already exists, use a different name.")
 
   async def recall_image(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message and update.message.text:
@@ -179,7 +191,7 @@ class Plugin(PluginBase):
         case [name, "stk"]:
           file_type = "sticker"
         case _:
-          return  # Invalid pattern
+          return
     else:
       await self.reply_message(update, context, "Message text is unavailable.")
       return
