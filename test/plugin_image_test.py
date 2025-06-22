@@ -152,21 +152,30 @@ async def test_unsplash_search_no_results(mock_update, mock_context, image_plugi
 
 
 @pytest.mark.asyncio
-async def test_list_images(mock_update, mock_context, image_plugin):
+async def test_list_images_grouped(mock_update, mock_context, image_plugin):
   mock_update.message.text = "/image"
 
   with patch(
     "lotb.plugins.image.Plugin.get_media_list",
-    return_value=[("sunrise", "photo"), ("dancing", "gif"), ("cool", "sticker")],
+    return_value=[("sunrise", "photo"), ("dancing", "gif"), ("cool", "sticker"), ("sunset", "photo"), ("funny", "gif")],
   ) as mock_get_media:
     await image_plugin.execute(mock_update, mock_context)
     mock_get_media.assert_called_once_with(mock_update.effective_chat.id)
 
     args, kwargs = mock_update.message.reply_text.call_args
-    assert "Saved media:" in args[0]
-    assert "sunrise.img" in args[0]
-    assert "dancing.gif" in args[0]
-    assert "cool.stk" in args[0]
+    response = args[0]
+    assert "📁 Saved media:" in response
+    assert "📷 images:" in response
+    assert "  • sunrise" in response
+    assert "  • sunset" in response
+    assert "🎬 gif:" in response
+    assert "  • dancing" in response
+    assert "  • funny" in response
+    assert "🖼️ stickers:" in response
+    assert "  • cool" in response
+    assert response.find("📷 images") < response.find("🎬 gif") < response.find("🖼️ stickers")
+    assert response.find("sunrise") < response.find("sunset")
+    assert response.find("dancing") < response.find("funny")
 
 
 @pytest.mark.asyncio

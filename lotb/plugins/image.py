@@ -76,11 +76,19 @@ class Plugin(PluginBase):
       else:
         media_list = self.get_media_list(chat_id)
         if media_list:
-          media_names = []
+          media_groups: dict[str, list[str]] = {}
           for name, file_type in media_list:
-            ext = {"gif": "gif", "sticker": "stk"}.get(file_type, "img")
-            media_names.append(f"{name}.{ext}")
-          message = "Saved media:\n" + "\n".join(media_names)
+            if file_type not in media_groups:
+              media_groups[file_type] = []
+            media_groups[file_type].append(name)
+          message = "📁 Saved media:\n"
+          type_order = ["photo", "gif", "sticker"]
+
+          for file_type in type_order:
+            if file_type in media_groups:
+              type_name = {"photo": "📷 images", "gif": "🎬 gif", "sticker": "🖼️ stickers"}[file_type]
+              message += f"\n{type_name}:\n"
+              message += "\n".join([f"  • {name}" for name in sorted(media_groups[file_type])])
         else:
           message = "No media saved yet, reply to an image with /image <name> to save one"
 
