@@ -40,6 +40,6 @@ jobs:
 
     - name: Coverage comment
       if: matrix.test == 'coverage'
-      uses: py-cov-action/python-coverage-comment-action@7fae8eb59b859da80bf3a6d8fe06bea05949662b # v3
+      uses: py-cov-action/python-coverage-comment-action@d71115038244cbb66fc3731c2dd648708faad41c # v3
       with:
         GITHUB_TOKEN: ${{ github.token }}
