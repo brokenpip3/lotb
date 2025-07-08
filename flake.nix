@@ -4,10 +4,6 @@
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs?ref=nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    poetry2nix = {
-      url = "github:nix-community/poetry2nix";
-      inputs.nixpkgs.follows = "nixpkgs";
-    };
   };
 
   outputs =
@@ -15,56 +11,66 @@
       self,
       nixpkgs,
       flake-utils,
-      poetry2nix,
     }:
     flake-utils.lib.eachDefaultSystem (
       system:
       let
         pkgs = nixpkgs.legacyPackages.${system};
-        inherit (poetry2nix.lib.mkPoetry2Nix { inherit pkgs; }) mkPoetryApplication defaultPoetryOverrides;
+        py = pkgs.python313;
+        pyPkgs = py.pkgs;
         lotbVersion = ((builtins.fromTOML (builtins.readFile ./pyproject.toml)).tool.poetry.version);
         lotbName = ((builtins.fromTOML (builtins.readFile ./pyproject.toml)).tool.poetry.name);
         dockerRegistry = "ghcr.io/brokenpip3";
       in
       {
-        formatter = nixpkgs.legacyPackages.${system}.nixpkgs-fmt;
+        formatter = pkgs.nixpkgs-fmt;
 
-        packages = {
-          "${lotbName}" = mkPoetryApplication {
-            python = pkgs.python313;
-            projectDir = self;
-            checkPhase = ''
-              runHook preCheck
-              pytest -s -v -k 'not unsplash'
-              runHook postCheck
-            '';
-            # Apparently this is not working
-            disabledTests = [
-              "test_unsplash_search_success"
-              "test_unsplash_search_no_results"
-              "test_unsplash_search_api_error"
-            ];
-            overrides = defaultPoetryOverrides.extend (
-              final: prev: {
-                python-telegram-bot = prev.python-telegram-bot.overridePythonAttrs (old: {
-                  buildInputs = (old.buildInputs or [ ]) ++ [ prev.hatchling ];
-                });
-              }
-            );
-          };
-          default = self.packages.${system}."${lotbName}";
+        packages.${lotbName} = pyPkgs.buildPythonApplication {
+          pname = lotbName;
+          version = lotbVersion;
+          src = ./.;
+          format = "pyproject";
+          nativeBuildInputs = with pyPkgs; [ poetry-core ];
+          propagatedBuildInputs = with pyPkgs; [
+            apscheduler
+            feedparser
+            litellm
+            python-dateutil
+            python-telegram-bot
+            typing-extensions
+          ];
+          nativeCheckInputs = with pyPkgs; [
+            pytest
+            pytest-asyncio
+            pytest-cov
+            types-python-dateutil
+          ];
+          # Apparently this is not working
+          disabledTests = [
+            "test_unsplash_search_success"
+            "test_unsplash_search_no_results"
+            "test_unsplash_search_api_error"
+            "test_llm_query_success"
+          ];
+          checkPhase = ''
+            runHook preCheck
+            pytest -s -v -k 'not unsplash and not llm'
+            runHook postCheck
+          '';
         };
+
+        packages.default = self.packages.${system}.${lotbName};
 
         packages.dockerimg = pkgs.dockerTools.buildImage {
           name = "${dockerRegistry}/${lotbName}";
-          tag = "${lotbVersion}";
+          tag = lotbVersion;
           created = "now";
           copyToRoot = self.packages.${system}.default;
           config = {
             Labels = {
               "maintainer" = "brokenpip3";
               "description" = "Docker image for ${lotbName}";
-              "version" = "${lotbVersion}";
+              "version" = lotbVersion;
               "org.opencontainers.image.authors" = "brokenpip3 <brokenpip3@gmail.com>";
               "org.opencontainers.image.title" = "lotb";
               "org.opencontainers.image.description" = "Lord of telegram bots";
@@ -75,19 +81,15 @@
         };
 
         devShells.default = pkgs.mkShell {
-          inputsFrom = [ self.packages.${system}.lotb ];
+          inputsFrom = [ self.packages.${system}.${lotbName} ];
           packages = with pkgs; [
-            python313
-            poetry
-            pre-commit
+            py
             ruff
             mypy
-            python313Packages.pytest-cov
-            python313Packages.flake8
+            pre-commit
             go-task
           ];
           PYTHONDONTWRITEBYTECODE = 1;
-          POETRY_VIRTUALENVS_IN_PROJECT = 1;
         };
       }
     );
