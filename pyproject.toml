@@ -15,7 +15,7 @@ python-telegram-bot = {extras = ["job-queue"], version = "^22.0"}
 feedparser = "^6.0.11"
 python-dateutil = "^2.9.0.post0"
 typing-extensions = "^4.13.0"
-litellm = "1.65.0"
+litellm = "1.73.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.0"

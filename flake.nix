@@ -35,6 +35,7 @@
             apscheduler
             feedparser
             litellm
+            mcp
             python-dateutil
             python-telegram-bot
             typing-extensions
@@ -54,7 +55,7 @@
           ];
           checkPhase = ''
             runHook preCheck
-            pytest -s -v -k 'not unsplash and not llm'
+            pytest -s -v -k 'not unsplash'
             runHook postCheck
           '';
         };
