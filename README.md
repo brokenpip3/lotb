@@ -5,10 +5,11 @@
 | Name                               |    Stmts |     Miss |   Cover |   Missing |
 |----------------------------------- | -------: | -------: | ------: | --------: |
 | lotb/common/config.py              |       33 |        0 |    100% |           |
-| lotb/common/plugin\_class.py       |       96 |        5 |     95% |29, 59, 69, 99, 120 |
+| lotb/common/plugin\_class.py       |      118 |        8 |     93% |32, 62, 72, 102, 147, 149-150, 153 |
 | lotb/common/version.py             |        2 |        2 |      0% |       1-3 |
 | lotb/lotb.py                       |      162 |       79 |     51% |31-51, 58-59, 76-78, 82-84, 88-90, 120-130, 145-150, 161-170, 174-212, 216 |
 | lotb/plugins/image.py              |      179 |       13 |     93% |36-39, 98-99, 115-116, 143-146, 208-209 |
+| lotb/plugins/llm.py                |       69 |       11 |     84% |54-55, 59, 61, 68, 105-107, 115-116, 151 |
 | lotb/plugins/memo.py               |       83 |       14 |     83% |63, 85-86, 89-90, 125-128, 134-135, 143-144, 156 |
 | lotb/plugins/notes.py              |       64 |       12 |     81% |30-31, 40-41, 47-48, 60-61, 81-82, 87, 104 |
 | lotb/plugins/prometheus\_alerts.py |       95 |       16 |     83% |23, 40-42, 81-82, 88-89, 110, 114-119, 141-142 |
@@ -18,7 +19,7 @@
 | lotb/plugins/rssfeed.py            |       60 |       10 |     83% |22, 24, 30, 71-73, 76-81, 87 |
 | lotb/plugins/socialfix.py          |       37 |        0 |    100% |           |
 | lotb/plugins/welcome.py            |       17 |        0 |    100% |           |
-|                          **TOTAL** | **1047** |  **169** | **84%** |           |
+|                          **TOTAL** | **1138** |  **183** | **84%** |           |
 
 3 empty files skipped.
 
