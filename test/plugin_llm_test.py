@@ -131,7 +131,7 @@ async def test_message_history_rotation(mock_update, mock_context, llm_plugin):
   mock_response.choices = [MagicMock()]
   mock_response.choices[0].message.content = "response1"
 
-  with patch("lotb.common.plugin_class.PluginBase.llm_completion", return_value=mock_response):
+  with patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)):
     for i in range(1, 5):
       mock_update.message.text = f"/llm message{i}"
       mock_response.choices[0].message.content = f"response{i}"
