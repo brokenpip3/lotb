@@ -1,10 +1,13 @@
 import logging
 import re
 import sqlite3
+from contextlib import contextmanager
 from typing import Callable
 from typing import Dict
 from typing import List
 
+import httpx
+import litellm
 from telegram import Update
 from telegram.ext import ContextTypes
 from telegram.ext import JobQueue
@@ -115,6 +118,36 @@ class PluginBase:
           return True
     self.log_info("No patterns matched.")
     return False
+
+  @contextmanager
+  def _wrap_llm_logging(self, model_name: str):
+    """thanks openai for this trick"""
+    original_level = logging.getLogger("LiteLLM").level
+    try:
+      logging.getLogger("LiteLLM").setLevel(logging.WARNING)
+      self.log_info(f"Starting llm completion with model: {model_name}")
+      yield
+    finally:
+      logging.getLogger("LiteLLM").setLevel(original_level)
+      self.log_info(f"Completed llm completion with model: {model_name}")
+
+  async def llm_completion(
+    self, messages: list, model: str | None = None, api_key: str | None = None, **kwargs
+  ) -> litellm.ModelResponse:
+    try:
+      params = {
+        "model": model,
+        "api_key": api_key,
+        "temperature": 0.7,
+        **kwargs,
+      }
+      filtered_params = {k: v for k, v in params.items() if v is not None}
+      with self._wrap_llm_logging(params["model"]):
+        response = await litellm.acompletion(messages=messages, **filtered_params)
+      return response
+    except httpx.HTTPError as e:
+      self.log_error(f"llm completion failed: {str(e)}")
+      raise
 
   async def execute(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
     raise NotImplementedError("Implement this in your plugin")
