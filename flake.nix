@@ -51,7 +51,6 @@
             "test_unsplash_search_success"
             "test_unsplash_search_no_results"
             "test_unsplash_search_api_error"
-            "test_llm_success"
           ];
           checkPhase = ''
             runHook preCheck

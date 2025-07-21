@@ -13,6 +13,38 @@ from telegram.ext import ContextTypes
 from telegram.ext import JobQueue
 
 
+class SecurityValidator:
+  def __init__(self):
+    self.max_tool_arg_size = 10000
+    self.blocked_tool_patterns = [
+      re.compile(pattern, re.IGNORECASE)
+      for pattern in [r".*exec.*", r".*eval.*", r".*shell.*", r".*cmd.*", r".*rm\s+.*", r".*delete.*", r".*drop.*"]
+    ]
+    self.suspicious_content_patterns = [
+      re.compile(pattern, re.IGNORECASE)
+      for pattern in [
+        r"<script[\s\S]*?>.*?</script>",
+        r"javascript:",
+        r"on\w+=",
+        r"data:text/html",
+        r"data:text/javascript",
+        r"data:text/css",
+      ]
+    ]
+
+  def validate_user_input(self, text: str) -> tuple[bool, str]:
+    for pattern in self.suspicious_content_patterns:
+      if pattern.search(text):
+        return False, f"Input contains suspicious content matching pattern: {pattern.pattern}"
+    return True, ""
+
+  def llm_validate_tool_name(self, tool_name: str) -> tuple[bool, str]:
+    for pattern in self.blocked_tool_patterns:
+      if pattern.match(tool_name):
+        return False, f"tool '{tool_name}' matches blocked pattern"
+    return True, ""
+
+
 class PluginBase:
   def __init__(self, name: str, description: str, require_auth: bool = False):
     self.name = name
@@ -25,8 +57,13 @@ class PluginBase:
     self.pattern_actions: Dict[str, Callable] = {}
     self.auth_group_ids: List[int] = []
     self.auth_group_enabled = False
+    self.security_validator = SecurityValidator()
 
   def initialize_plugin(self):
+    if self.config is None:
+      self.log_error("Configuration not loaded")
+      return
+
     plugin_config = self.config.get(f"plugins.{self.name}", {})
     if not plugin_config.get("enabled", True):
       raise ValueError(f"{self.name.capitalize()} plugin not loaded: not enabled in config")
@@ -135,15 +172,24 @@ class PluginBase:
     self, messages: list, model: str | None = None, api_key: str | None = None, **kwargs
   ) -> litellm.ModelResponse:
     try:
+      if not model:
+        model = "gpt-4.1-nano"
+        self.log_warning("no model specified, using default openai/gpt-4.1-nano")
+
       params = {
-        "model": model,
+        "model": model if model else "gpt-4.1-nano",
         "api_key": api_key,
         "temperature": 0.7,
         **kwargs,
       }
-      filtered_params = {k: v for k, v in params.items() if v is not None}
-      with self._wrap_llm_logging(params["model"]):
-        response = await litellm.acompletion(messages=messages, **filtered_params)
+
+      filtered_params = {"model": model, "messages": messages}
+      for k, v in params.items():
+        if k != "model" and v is not None:
+          filtered_params[k] = v
+
+      with self._wrap_llm_logging(model):
+        response = await litellm.acompletion(**filtered_params)
       return response
     except httpx.HTTPError as e:
       self.log_error(f"llm completion failed: {str(e)}")
