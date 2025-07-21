@@ -35,7 +35,8 @@ This system is plugin-based and it shares a common core logic, making it easier 
   * schedule tasks for your plugin using the job queue scheduler
   * support for job queue scheduler so you can schedule tasks for your plugin
   * auth: define a list of users or authorize specific groups to interact with the bot
-* Great test coverage (> 70%) ✅
+  * create llm completions using litellm
+* Great test coverage (> 80%) ✅
 
 ### How to use it? 📦
 
@@ -146,6 +147,28 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
   [plugins.remindme]
   enabled = true # enable or disable the plugin
   ```
+* [llm](./lotb/plugins/llm.py): A plugin that will let you use a llm inside your chat and also keep history of the conversation per user,
+  so each user can have its own conversation with the llm. Under the hood use [litellm](https://github.com/BerriAI/litellm) so you can use any model that is supported by it.
+  ```toml
+  [plugins.llm]
+  enabled = true # enable or disable the plugin
+  model = "deepseek/deepseek-chat"
+  apikey = "your_api_key" # can be also set as env var: LOTB_PLUGINS_LLM_APIKEY
+  ```
+* [assistant](./lotb/plugins/assistant.py): A plugin that will let you configure any MCP (Model Context Protocol) [streamable http](https://modelcontextprotocol.io/docs/concepts/transports#streamable-http) server
+  and let the model answer to your questions using those servers. You can ask the llm to use tools and resources that are available in the MCP server.
+  It also keep a small history of the conversation per user to allow seamless interaction with the model and mcp servers.
+  ```toml
+  [plugins.assistant]
+  enabled = true # enable or disable the plugin
+  model = "gpt-4.1-nano"
+  apikey = "your_api_key" # can be also set as env var: LOTB_PLUGINS_ASSISTANT_APIKEY
+  mcpservers = [
+    {name = "task", url = "http://localhost:8125", auth_value = "your-secret-token-here"},
+    {name = "calendar", url = "http://localhost:8126", auth_value = "your-secret-token-here"},
+  ]
+  ```
+
 
 ### How to add a plugin? What helper methods are available?
 

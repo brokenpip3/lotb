@@ -55,7 +55,15 @@ tasks:
   local:
     desc: run the app locally
     cmds:
-      - nix run .#lotb -- --config config.yaml
+      - nix build .#lotb
+      - ./result/bin/lotb --config config.yaml
+
+  test:
+    desc: run all tests
+    cmds:
+      - task: mypy
+      - task: pytest
+      - task: coverage
 
   docker-version:
     desc: temp ovverride ver in pyproject.toml if OVERRIDE_VERSION
