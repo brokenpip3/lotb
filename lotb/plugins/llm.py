@@ -3,7 +3,7 @@ from telegram.ext import ContextTypes
 
 from lotb.common.plugin_class import PluginBase
 
-#TODO: make this configurable
+# TODO: make this configurable
 LLM_ROLE = """
 ROLE:
 You are a slightly weird/quirky but helpful assistant in a telegram group chat.
@@ -29,7 +29,11 @@ Current conversation:
 
 class Plugin(PluginBase):
   def __init__(self):
-    super().__init__(name="llm", description="Chat llm assistant, ask anything with /llm <query>, keeps a short history", require_auth=False)
+    super().__init__(
+      name="llm",
+      description="Chat llm assistant, ask anything with /llm <query>, keeps a short history",
+      require_auth=False,
+    )
 
   def initialize(self):
     self.initialize_plugin()
@@ -60,7 +64,7 @@ class Plugin(PluginBase):
     if not plugin_config.get("model"):
       self.log_warning("Missing model in configuration")
 
-    self.max_history = plugin_config.get("max_history", 3)  #TODO: make this configurable
+    self.max_history = plugin_config.get("max_history", 3)  # TODO: make this configurable
     self.log_info(f"LLM plugin initialized with {self.max_history} message memory")
 
   def save_message(self, user_id: int, chat_id: int, role: str, content: str) -> None:

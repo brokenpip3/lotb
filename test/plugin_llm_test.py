@@ -78,6 +78,7 @@ async def test_llm_missing_message(mock_update, mock_context, llm_plugin):
   await llm_plugin.execute(mock_update, mock_context)
   mock_update.effective_chat.send_message.assert_called_once_with("Message is unavailable")
 
+
 @pytest.mark.asyncio
 async def test_llm_with_quoted_message(mock_update, mock_context, llm_plugin):
   mock_update.message.text = "/llm explain this"
