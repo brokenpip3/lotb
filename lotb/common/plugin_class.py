@@ -177,7 +177,7 @@ class PluginBase:
         self.log_warning("no model specified, using default openai/gpt-4.1-nano")
 
       params = {
-        "model": model if model else "gpt-4.1-nano",
+        "model": model,
         "api_key": api_key,
         "temperature": 0.7,
         **kwargs,
