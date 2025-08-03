@@ -135,6 +135,9 @@ class PluginBase:
   def log_error(self, message: str):
     logging.error(f"[{self.name}] {message}")
 
+  def log_debug(self, message: str):
+    logging.debug(f"[{self.name}] {message}")
+
   def set_job_queue(self, job_queue: JobQueue):
     pass
 
@@ -145,15 +148,15 @@ class PluginBase:
   async def intercept_patterns(self, update: Update, context: ContextTypes.DEFAULT_TYPE, pattern_actions: dict):
     if update.message and update.message.text:
       message_text = update.message.text.lower()
-      self.log_info(f"Checking message: {message_text}")
+      self.log_debug(f"Checking message: {message_text}")
       for pattern, action in pattern_actions.items():
-        self.log_info(f"Checking pattern: {pattern}")
+        self.log_debug(f"Checking pattern: {pattern}")
         if re.search(pattern, message_text):
-          self.log_info(f"Pattern matched: {pattern}")
+          self.log_debug(f"Pattern matched: {pattern}")
           await action(update, context)
-          self.log_info(f"Intercepted pattern '{pattern}' in message: {message_text}")
+          self.log_debug(f"Intercepted pattern '{pattern}' in message: {message_text}")
           return True
-    self.log_info("No patterns matched.")
+    self.log_debug("No patterns matched.")
     return False
 
   @contextmanager
