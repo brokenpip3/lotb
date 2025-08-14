@@ -483,7 +483,7 @@ async def test_execute_tool_call_blocked_tool(assistant_plugin):
 
   messages = []
   result = await assistant_plugin._execute_tool_call(tool_call, messages)
-  assert result is 'failed'
+  assert result == 'failed'
   assert any("security error" in m["content"].lower() for m in messages)
 
 
