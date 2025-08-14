@@ -370,8 +370,14 @@ Keep these rules in mind:
         return content.content or ""
 
       messages.append({"role": "assistant", "content": content.content or "", "tool_calls": content.tool_calls})
-      tool_result = await self._execute_tool_call(content.tool_calls[0], messages)
-      if tool_result is None:
+
+      all_successful = True
+      for tool_call in content.tool_calls:
+        result = await self._execute_tool_call(tool_call, messages)
+        if result == "failed" or result is None:
+          all_successful = False
+
+      if not all_successful:
         return "tool execution failed"
 
     return "max tool call iterations reached"
@@ -384,20 +390,19 @@ Keep these rules in mind:
     if not is_valid:
       self.log_warning(f"tool '{tool_name}' blocked by security: {error_msg}")
       messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": f"security error: {error_msg}"})
-      return None
+      return "failed"
 
     try:
       tool_args = json.loads(tool_args_str) if isinstance(tool_args_str, str) else tool_args_str
     except json.JSONDecodeError as e:
       self.log_error(f"failed to parse tool arguments: {e}")
       messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": "error: invalid tool arguments format"})
-      return None
-    if tool_name.startswith("read_resource_"):
-      result = await self._handle_resource_tool(tool_name, tool_call, messages)
-      return result
+      return "failed"
 
-    result = await self._handle_mcp_tool(tool_name, tool_args, tool_call, messages)
-    return result
+    if tool_name.startswith("read_resource_"):
+      return await self._handle_resource_tool(tool_name, tool_call, messages)
+
+    return await self._handle_mcp_tool(tool_name, tool_args, tool_call, messages)
 
   async def _handle_resource_tool(self, tool_name: str, tool_call, messages: List[Dict[str, Any]]) -> Optional[str]:
     resource_uri = self._find_resource_uri_for_tool(tool_name)
