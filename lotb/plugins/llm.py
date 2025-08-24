@@ -139,6 +139,7 @@ class Plugin(PluginBase):
         {"role": "user", "content": f"{query}{quoted_text}"},
       ]
 
+      await self.send_typing_action(update, context)
       plugin_config = self.config.get("plugins.llm", {}) if self.config else {}  # type: dict
       response = await self.llm_completion(
         messages=messages,

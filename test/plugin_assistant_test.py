@@ -68,10 +68,13 @@ async def test_execute_status_command(assistant_plugin, mock_update, mock_contex
 @pytest.mark.asyncio
 async def test_execute_query(assistant_plugin, mock_update, mock_context):
   mock_update.message.text = "/assistant question without a real answer"
-  with patch.object(assistant_plugin, "_handle_llm_conversation", new_callable=AsyncMock) as mock_handle:
+  with patch.object(assistant_plugin, "_handle_llm_conversation", new_callable=AsyncMock) as mock_handle, patch(
+    "lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()
+  ) as mock_typing:
     mock_handle.return_value = "test response"
     await assistant_plugin.execute(mock_update, mock_context)
     mock_handle.assert_called()
+    mock_typing.assert_called_once_with(mock_update, mock_context)
     mock_update.message.reply_text.assert_called_with("test response")
 
 
