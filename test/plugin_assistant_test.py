@@ -68,9 +68,10 @@ async def test_execute_status_command(assistant_plugin, mock_update, mock_contex
 @pytest.mark.asyncio
 async def test_execute_query(assistant_plugin, mock_update, mock_context):
   mock_update.message.text = "/assistant question without a real answer"
-  with patch.object(assistant_plugin, "_handle_llm_conversation", new_callable=AsyncMock) as mock_handle, patch(
-    "lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()
-  ) as mock_typing:
+  with (
+    patch.object(assistant_plugin, "_handle_llm_conversation", new_callable=AsyncMock) as mock_handle,
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()) as mock_typing,
+  ):
     mock_handle.return_value = "test response"
     await assistant_plugin.execute(mock_update, mock_context)
     mock_handle.assert_called()
@@ -486,7 +487,7 @@ async def test_execute_tool_call_blocked_tool(assistant_plugin):
 
   messages = []
   result = await assistant_plugin._execute_tool_call(tool_call, messages)
-  assert result == 'failed'
+  assert result == "failed"
   assert any("security error" in m["content"].lower() for m in messages)
 
 

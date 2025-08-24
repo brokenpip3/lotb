@@ -1,5 +1,5 @@
 import argparse
-import importlib
+import importlib.util
 import logging
 import os
 from pathlib import Path
@@ -27,18 +27,26 @@ handlers = {}
 application = None
 
 
-def load_plugins(directory):
+def load_plugins(directory, config=None):
   plugins_path = Path(directory)
   for root, _, files in os.walk(plugins_path):
     for file in files:
       if file.endswith(".py") and file != "__init__.py":
         module_name = file[:-3]
-        relative_path = Path(root).relative_to(plugins_path)
-        module_path = ".".join([str(relative_path).replace(os.sep, "."), module_name]).strip(".")
-        full_module_path = f"lotb.{plugins_path.name}.{module_path}"
+
+        plugin_config_key = f"plugins.{module_name}"
+        plugin_config = config.get(plugin_config_key, {}) if config else {}
+        if not plugin_config.get("enabled", False):
+          logger.info(f"Skipping disabled plugin: {module_name}")
+          continue
         try:
-          logger.debug(f"Importing module: {full_module_path}")
-          module = importlib.import_module(full_module_path)
+          file_path = Path(root) / file
+          spec = importlib.util.spec_from_file_location(module_name, file_path)
+          if spec is None:
+            logger.error(f"Failed to create spec for plugin {module_name} from {file_path}")
+            continue
+          module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(module)
           plugin_instance = module.Plugin()
           logger.debug(f"Setting config for plugin: {module_name}")
           plugin_instance.set_config(config)
@@ -189,11 +197,11 @@ def main():
   application = Application.builder().token(token).post_init(post_init).build()
 
   default_plugins_dir = Path(__file__).parent / "plugins"
-  load_plugins(default_plugins_dir)
+  load_plugins(default_plugins_dir, config)
 
   additional_plugins_dir = config.get("core.plugins_additional_directory")
   if additional_plugins_dir:
-    load_plugins(additional_plugins_dir)
+    load_plugins(additional_plugins_dir, config)
 
   for command, handler in handlers.items():
     application.add_handler(handler)

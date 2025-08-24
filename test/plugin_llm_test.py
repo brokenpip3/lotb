@@ -33,11 +33,10 @@ async def test_llm_success(mock_update, mock_context, llm_plugin):
   mock_response.choices = [MagicMock()]
   mock_response.choices[0].message.content = "Hello Boss, how is going?"
 
-  with patch(
-    "lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)
-  ) as mock_llm, patch(
-    "lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()
-  ) as mock_typing:
+  with (
+    patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)) as mock_llm,
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()) as mock_typing,
+  ):
     await llm_plugin.execute(mock_update, mock_context)
     mock_llm.assert_called_once_with(
       messages=[{"role": "system", "content": LLM_ROLE}, {"role": "user", "content": "hello my dear assistant"}],
@@ -60,8 +59,9 @@ async def test_llm_missing_config(mock_update, mock_context):
 @pytest.mark.asyncio
 async def test_llm_api_error(mock_update, mock_context, llm_plugin):
   mock_update.message.text = "/llm hello my dear assistant"
-  with patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(side_effect=Exception("Test error"))), patch(
-    "lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()
+  with (
+    patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(side_effect=Exception("Test error"))),
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
   ):
     await llm_plugin.execute(mock_update, mock_context)
     reply = mock_update.message.reply_text.call_args[0][0]
@@ -94,11 +94,10 @@ async def test_llm_with_quoted_message(mock_update, mock_context, llm_plugin):
   mock_response.choices = [MagicMock()]
   mock_response.choices[0].message.content = "Hello Boss, how is going?"
 
-  with patch(
-    "lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)
-  ) as mock_llm, patch(
-    "lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()
-  ) as mock_typing:
+  with (
+    patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)) as mock_llm,
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()) as mock_typing,
+  ):
     await llm_plugin.execute(mock_update, mock_context)
     mock_llm.assert_called_once_with(
       messages=[
@@ -122,11 +121,10 @@ async def test_llm_with_quoted_message_no_text(mock_update, mock_context, llm_pl
   mock_response.choices = [MagicMock()]
   mock_response.choices[0].message.content = "Hello Boss, how is going?"
 
-  with patch(
-    "lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)
-  ) as mock_llm, patch(
-    "lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()
-  ) as mock_typing:
+  with (
+    patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)) as mock_llm,
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()) as mock_typing,
+  ):
     await llm_plugin.execute(mock_update, mock_context)
     mock_llm.assert_called_once_with(
       messages=[{"role": "system", "content": LLM_ROLE}, {"role": "user", "content": "explain this"}],
@@ -143,8 +141,9 @@ async def test_message_history_rotation(mock_update, mock_context, llm_plugin):
   mock_response.choices = [MagicMock()]
   mock_response.choices[0].message.content = "response1"
 
-  with patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)), patch(
-    "lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()
+  with (
+    patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)),
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
   ):
     for i in range(1, 5):
       mock_update.message.text = f"/llm message{i}"

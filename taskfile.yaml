@@ -56,7 +56,7 @@ tasks:
     desc: run the app locally
     cmds:
       - nix build .#lotb
-      - ./result/bin/lotb --config config.yaml
+      - ./result/bin/lotb --config config.toml
 
   test:
     desc: run all tests

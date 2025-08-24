@@ -9,8 +9,11 @@ from lotb.common.plugin_class import PluginBase
 from lotb.lotb import disable_plugin
 from lotb.lotb import enable_plugin
 from lotb.lotb import handle_command
+from lotb.lotb import handlers
 from lotb.lotb import help_command
 from lotb.lotb import list_plugins
+from lotb.lotb import load_plugins
+from lotb.lotb import plugins
 
 
 @pytest.fixture
@@ -26,6 +29,20 @@ def mock_context():
   context.bot.send_photo = AsyncMock()
   context.bot.send_message = AsyncMock()
   return context
+
+
+@pytest.fixture
+def mock_spec_side_effect():
+  def spec_from_file_location_side_effect(name, location):
+    mock_module = MagicMock()
+    mock_plugin_instance = MagicMock()
+    mock_module.Plugin = MagicMock(return_value=mock_plugin_instance)
+    spec = MagicMock()
+    spec.loader = MagicMock()
+    spec.loader.exec_module = lambda module: setattr(module, "Plugin", mock_module.Plugin)
+    return spec
+
+  return spec_from_file_location_side_effect
 
 
 @pytest.mark.asyncio
@@ -136,6 +153,11 @@ def config():
   }
 
 
+@pytest.fixture
+def custom_plugin_config():
+  return {"plugins.custom_plugin": {"enabled": True}, "core": {"database": ":memory:"}}
+
+
 def test_is_authorized_user_authorized_group_not_authorized(plugin, mock_update, config):
   config["plugins.test_plugin"]["auth_groups_ids"] = [11111]
   plugin.set_config(config)
@@ -159,3 +181,54 @@ def test_is_authorized_group_auth_disabled(plugin, mock_update, config):
   config["plugins.test_plugin"]["auth_group_enabled"] = False
   plugin.set_config(config)
   assert plugin.group_is_authorized(mock_update) is True
+
+
+def test_plugin_config_enabled_checking():
+  test_config = {"plugins.test_plugin": {"enabled": True}}
+  plugin_config_key = "plugins.test_plugin"
+  plugin_config = test_config.get(plugin_config_key, {})
+  assert plugin_config.get("enabled") is True
+
+  test_config = {"plugins.test_plugin": {"enabled": False}}
+  plugin_config_key = "plugins.test_plugin"
+  plugin_config = test_config.get(plugin_config_key, {})
+  assert plugin_config.get("enabled") is False
+
+  test_config = {"plugins.other_plugin": {"enabled": True}}
+  plugin_config_key = "plugins.test_plugin"
+  plugin_config = test_config.get(plugin_config_key, {})
+  assert plugin_config.get("enabled") is None
+
+
+def test_additional_plugins_directory_nonexistent():
+  with patch("lotb.lotb.logger") as mock_logger:
+    load_plugins("/nonexistent/directory")
+    error_calls = [call for call in mock_logger.error.call_args_list]
+    assert len(error_calls) == 0
+
+
+def test_additional_plugins_file_based_loading(mock_spec_side_effect, custom_plugin_config):
+  with patch("lotb.lotb.os.walk") as mock_walk, patch("lotb.lotb.importlib.util.spec_from_file_location") as mock_spec:
+    mock_walk.return_value = [("/custom/plugins", [], ["custom_plugin.py", "__init__.py"])]
+    mock_spec.side_effect = mock_spec_side_effect
+    load_plugins("/custom/plugins", custom_plugin_config)
+    mock_spec.assert_called()
+
+
+def test_additional_plugins_complete_loading(mock_spec_side_effect, custom_plugin_config):
+  with (
+    patch("lotb.lotb.os.walk") as mock_walk,
+    patch("lotb.lotb.importlib.util.spec_from_file_location") as mock_spec,
+    patch("lotb.lotb.CommandHandler") as mock_command_handler,
+    patch("lotb.lotb.handle_command") as mock_handle_command,
+  ):
+    mock_walk.return_value = [("/custom/plugins", [], ["custom_plugin.py", "__init__.py"])]
+    mock_handler_instance = MagicMock()
+    mock_command_handler.return_value = mock_handler_instance
+    mock_spec.side_effect = mock_spec_side_effect
+    load_plugins("/custom/plugins", custom_plugin_config)
+    assert "custom_plugin" in plugins
+    assert plugins["custom_plugin"] is not None
+    assert "custom_plugin" in handlers
+    assert handlers["custom_plugin"] is not None
+    mock_command_handler.assert_called_once_with("custom_plugin", mock_handle_command)
