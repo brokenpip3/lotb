@@ -3,6 +3,7 @@ from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
+import httpx
 import pytest
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -147,3 +148,118 @@ def test_plugin_base_group_is_authorized(mock_plugin, mock_update):
   mock_plugin.auth_group_enabled = True
   mock_plugin.auth_group_ids = [456]
   assert not mock_plugin.group_is_authorized(mock_update)
+
+
+@pytest.mark.asyncio
+async def test_plugin_base_send_typing_action(mock_plugin, mock_update, mock_context):
+  mock_context.bot.send_chat_action = AsyncMock()
+  await mock_plugin.send_typing_action(mock_update, mock_context)
+  mock_context.bot.send_chat_action.assert_called_with(chat_id=mock_update.effective_chat.id, action="typing")
+
+
+@pytest.mark.asyncio
+async def test_plugin_base_send_typing_action_no_chat(mock_plugin, mock_context):
+  update = MagicMock()
+  update.effective_chat = None
+  await mock_plugin.send_typing_action(update, mock_context)
+  mock_context.bot.send_chat_action.assert_not_called()
+
+
+def test_plugin_base_set_plugins(mock_plugin):
+  plugins = ["plugin1", "plugin2"]
+  mock_plugin.set_plugins(plugins)
+  assert mock_plugin.plugins == plugins
+
+
+@pytest.mark.asyncio
+async def test_plugin_base_intercept_patterns_matched(mock_plugin, mock_update, mock_context):
+  action_called = False
+
+  async def mock_action(update, context):
+    nonlocal action_called
+    action_called = True
+
+  pattern_actions = {"test.*pattern": mock_action}
+  mock_update.message.text = "this is a test pattern match"
+
+  result = await mock_plugin.intercept_patterns(mock_update, mock_context, pattern_actions)
+  assert result is True
+  assert action_called is True
+
+
+@pytest.mark.asyncio
+async def test_plugin_base_intercept_patterns_not_matched(mock_plugin, mock_update, mock_context):
+  action_called = False
+
+  async def mock_action(update, context):
+    nonlocal action_called
+    action_called = True
+
+  pattern_actions = {"nonexistent.*pattern": mock_action}
+  mock_update.message.text = "this won't match anything"
+
+  result = await mock_plugin.intercept_patterns(mock_update, mock_context, pattern_actions)
+  assert result is False
+  assert action_called is False
+
+
+@pytest.mark.asyncio
+async def test_plugin_base_intercept_patterns_no_message(mock_plugin, mock_context):
+  update = MagicMock()
+  update.message = None
+
+  result = await mock_plugin.intercept_patterns(update, mock_context, {})
+  assert result is False
+
+
+@pytest.mark.asyncio
+async def test_plugin_base_intercept_patterns_no_text(mock_plugin, mock_update, mock_context):
+  mock_update.message.text = None
+
+  result = await mock_plugin.intercept_patterns(mock_update, mock_context, {})
+  assert result is False
+
+
+def test_plugin_base_set_job_queue(mock_plugin):
+  job_queue = MagicMock()
+  mock_plugin.set_job_queue(job_queue)
+
+
+@patch("logging.getLogger")
+def test_plugin_base_wrap_llm_logging(mock_get_logger, mock_plugin):
+  mock_logger = MagicMock()
+  mock_logger.level = logging.INFO
+  mock_get_logger.return_value = mock_logger
+
+  with mock_plugin._wrap_llm_logging("test-model"):
+    mock_logger.setLevel.assert_called_with(logging.WARNING)
+
+  mock_logger.setLevel.assert_called_with(logging.INFO)
+
+
+@pytest.mark.asyncio
+@patch("litellm.acompletion")
+async def test_plugin_base_llm_completion_error(mock_acompletion, mock_plugin):
+  mock_acompletion.side_effect = httpx.HTTPError("HTTP error")
+
+  with pytest.raises(httpx.HTTPError):
+    await mock_plugin.llm_completion([{"role": "user", "content": "test"}], "test-model")
+
+
+@pytest.mark.asyncio
+@patch("litellm.acompletion")
+async def test_plugin_base_llm_completion_default_model(mock_acompletion, mock_plugin, caplog):
+  mock_acompletion.return_value = MagicMock()
+
+  with caplog.at_level(logging.WARNING):
+    await mock_plugin.llm_completion([{"role": "user", "content": "test"}])
+
+  assert any("no model specified" in msg for msg in caplog.messages)
+  mock_acompletion.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_plugin_base_execute_not_implemented(mock_update, mock_context):
+  plugin = PluginBase("test", "test plugin")
+  with pytest.raises(NotImplementedError):
+    await plugin.execute(mock_update, mock_context)
