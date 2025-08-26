@@ -9,6 +9,7 @@ from typing import List
 import httpx
 import litellm
 from telegram import Update
+from telegram.constants import ChatAction
 from telegram.ext import ContextTypes
 from telegram.ext import JobQueue
 
@@ -125,6 +126,10 @@ class PluginBase:
   async def reply_quote_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE, message: str):
     if update.message:
       await update.message.reply_text(message, do_quote=True)
+
+  async def send_typing_action(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.effective_chat:
+      await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
 
   def log_info(self, message: str):
     logging.info(f"[{self.name}] {message}")

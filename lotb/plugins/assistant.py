@@ -610,6 +610,7 @@ Servers:
         self.log_info(f"using {len(tools)} tools for this request")
         history = self.get_conversation_history(user_id, chat_id)
         messages = [*history, {"role": "user", "content": text}]
+        await self.send_typing_action(update, context)
         response = await self._handle_llm_conversation(messages, tools)
         self.log_info(f"responding with: '{response[:100]}...'")
         self.save_message(user_id, chat_id, "user", text)

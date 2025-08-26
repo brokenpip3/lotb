@@ -61,17 +61,23 @@ async def test_execute_tools_command(assistant_plugin, mock_update, mock_context
 @pytest.mark.asyncio
 async def test_execute_status_command(assistant_plugin, mock_update, mock_context):
   mock_update.message.text = "/assistant status"
-  await assistant_plugin.execute(mock_update, mock_context)
-  mock_update.message.reply_text.assert_called()
+  with patch.object(assistant_plugin, "_ensure_tools_loaded", new_callable=AsyncMock) as mock_load:
+    await assistant_plugin.execute(mock_update, mock_context)
+    mock_load.assert_called()
+    mock_update.message.reply_text.assert_called()
 
 
 @pytest.mark.asyncio
 async def test_execute_query(assistant_plugin, mock_update, mock_context):
   mock_update.message.text = "/assistant question without a real answer"
-  with patch.object(assistant_plugin, "_handle_llm_conversation", new_callable=AsyncMock) as mock_handle:
+  with (
+    patch.object(assistant_plugin, "_handle_llm_conversation", new_callable=AsyncMock) as mock_handle,
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()) as mock_typing,
+  ):
     mock_handle.return_value = "test response"
     await assistant_plugin.execute(mock_update, mock_context)
     mock_handle.assert_called()
+    mock_typing.assert_called_once_with(mock_update, mock_context)
     mock_update.message.reply_text.assert_called_with("test response")
 
 
@@ -375,10 +381,13 @@ async def test_execute_help_command_via_main(assistant_plugin, mock_update, mock
 
 
 @pytest.mark.asyncio
-async def test_execute_status_command_via_main(assistant_plugin, mock_update, mock_context):
+@patch("lotb.plugins.assistant.Plugin._ensure_tools_loaded", new_callable=AsyncMock)
+async def test_execute_status_command_via_main(mock_ensure_tools_loaded, assistant_plugin, mock_update, mock_context):
+  mock_ensure_tools_loaded.return_value = []
   mock_update.message.text = "/assistant status"
   await assistant_plugin.execute(mock_update, mock_context)
   mock_update.message.reply_text.assert_called()
+  mock_ensure_tools_loaded.assert_called_once()
 
 
 @pytest.mark.asyncio
@@ -483,7 +492,7 @@ async def test_execute_tool_call_blocked_tool(assistant_plugin):
 
   messages = []
   result = await assistant_plugin._execute_tool_call(tool_call, messages)
-  assert result == 'failed'
+  assert result == "failed"
   assert any("security error" in m["content"].lower() for m in messages)
 
 
