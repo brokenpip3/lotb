@@ -21,6 +21,7 @@ def mock_config():
       ],
       "model": "openMai",
       "apikey": "yes",
+      "friendlyname": "Dino",
     }
   }
 
@@ -637,3 +638,137 @@ async def test_validate_update(assistant_plugin):
   assert assistant_plugin._validate_update(mock_update) is False
   mock_update.message = MagicMock()
   assert assistant_plugin._validate_update(mock_update) is True
+
+
+@pytest.mark.asyncio
+async def test_trigger_with_hey_pattern(assistant_plugin, mock_update, mock_context):
+  mock_update.message.text = "hey Dino will be sunny today?"
+
+  with (
+    patch.object(assistant_plugin, "_handle_llm_conversation", new_callable=AsyncMock) as mock_handle,
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()) as mock_typing,
+  ):
+    mock_handle.return_value = "It's sunny!"
+    await assistant_plugin.execute(mock_update, mock_context)
+    mock_handle.assert_called_once()
+    call_args = mock_handle.call_args
+    messages = call_args[0][0]
+    assert any(msg.get("content") == "will be sunny today?" for msg in messages if msg.get("role") == "user")
+    mock_typing.assert_called_once_with(mock_update, mock_context)
+    mock_update.message.reply_text.assert_called_once_with("It's sunny!")
+
+
+@pytest.mark.asyncio
+async def test_trigger_with_comma(assistant_plugin, mock_update, mock_context):
+  mock_update.message.text = "Dino, tell me a joke"
+
+  with (
+    patch.object(assistant_plugin, "_handle_llm_conversation", new_callable=AsyncMock) as mock_handle,
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
+  ):
+    mock_handle.return_value = "do you know that it's 5 year since the last time that Juventus won the serie A?"
+    await assistant_plugin.execute(mock_update, mock_context)
+    mock_handle.assert_called_once()
+    call_args = mock_handle.call_args
+    messages = call_args[0][0]
+    assert any(msg.get("content") == "tell me a joke" for msg in messages if msg.get("role") == "user")
+
+
+@pytest.mark.asyncio
+async def test_trigger_case_insensitive(assistant_plugin, mock_update, mock_context):
+  mock_update.message.text = "DINO: help me with my fire calculation"
+
+  with (
+    patch.object(assistant_plugin, "_handle_llm_conversation", new_callable=AsyncMock) as mock_handle,
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
+  ):
+    mock_handle.return_value = "How can I help?"
+    await assistant_plugin.execute(mock_update, mock_context)
+    mock_handle.assert_called_once()
+    call_args = mock_handle.call_args
+    messages = call_args[0][0]
+    assert any(
+      msg.get("content") == "help me with my fire calculation" for msg in messages if msg.get("role") == "user"
+    )
+
+
+@pytest.mark.asyncio
+async def test_trigger_with_no_query(assistant_plugin, mock_update, mock_context):
+  mock_update.message.text = "hey Dino!"
+  await assistant_plugin.execute(mock_update, mock_context)
+  mock_update.message.reply_text.assert_called_once_with("yes? 🦕")
+
+
+@pytest.mark.asyncio
+async def test_trigger_disabled(mock_update, mock_context):
+  config = {
+    "plugins.assistant": {"model": "gpt-4", "apikey": "test-key", "mcpservers": []},  # no friendlyname
+    "core.database": ":memory:",
+  }
+
+  plugin = Plugin()
+  plugin.set_config(config)
+  plugin.initialize()
+  assert len(plugin.pattern_actions) == 0
+  mock_update.message.text = "/assistant"
+  await plugin.execute(mock_update, mock_context)
+  mock_update.message.reply_text.assert_called()
+  reply_text = mock_update.message.reply_text.call_args[0][0]
+  assert "Assistant help" in reply_text
+
+
+@pytest.mark.asyncio
+async def test_trigger_custom_name(mock_update, mock_context):
+  config = {
+    "plugins.assistant": {"model": "gpt-4", "apikey": "test-key", "friendlyname": "Bot", "mcpservers": []},
+    "core.database": ":memory:",
+  }
+
+  plugin = Plugin()
+  plugin.set_config(config)
+  plugin.initialize()
+
+  mock_update.message.text = "hey Bot, what time is it?"
+
+  with (
+    patch.object(plugin, "_handle_llm_conversation", new_callable=AsyncMock) as mock_handle,
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
+  ):
+    mock_handle.return_value = "It's 3 PM"
+    await plugin.execute(mock_update, mock_context)
+    mock_handle.assert_called_once()
+    call_args = mock_handle.call_args
+    messages = call_args[0][0]
+    assert any(msg.get("content") == "what time is it?" for msg in messages if msg.get("role") == "user")
+
+
+@pytest.mark.asyncio
+async def test_trigger_with_punctuation(assistant_plugin, mock_update, mock_context):
+  test_cases = [
+    ("Dino! help", "help"),
+    ("Dino? what's up", "what's up"),
+    ("Dino: do something", "do something"),
+  ]
+
+  for message_text, expected_query in test_cases:
+    mock_update.message.text = message_text
+    mock_update.message.reply_text.reset_mock()
+
+    with (
+      patch.object(assistant_plugin, "_handle_llm_conversation", new_callable=AsyncMock) as mock_handle,
+      patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
+    ):
+      mock_handle.return_value = "OK"
+      await assistant_plugin.execute(mock_update, mock_context)
+      if mock_handle.called:
+        call_args = mock_handle.call_args
+        messages = call_args[0][0]
+        assert any(msg.get("content") == expected_query for msg in messages if msg.get("role") == "user")
+
+
+@pytest.mark.asyncio
+async def test_trigger_with_special_command(assistant_plugin, mock_update, mock_context):
+  mock_update.message.text = "Dino, help"
+  await assistant_plugin.execute(mock_update, mock_context)
+  reply_text = mock_update.message.reply_text.call_args[0][0]
+  assert "🤖 Assistant help" in reply_text

@@ -45,6 +45,7 @@
             pytest-asyncio
             pytest-cov
             types-python-dateutil
+            pip
           ];
           # Apparently this is not working
           disabledTests = [

@@ -34,7 +34,7 @@ tasks:
   pytest:
     desc: run pytest
     cmds:
-      - pytest -v -s
+      - pytest -v -s {{.CLI_ARGS}}
 
   coverage:
     desc: create coverage report
