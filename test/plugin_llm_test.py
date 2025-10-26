@@ -324,3 +324,46 @@ async def test_trigger_with_punctuation_colon(mock_update, mock_context, llm_plu
     await llm_plugin.execute(mock_update, mock_context)
     call_args = mock_llm.call_args
     assert call_args[1]["messages"][1]["content"] == "do something"
+
+
+@pytest.mark.asyncio
+async def test_trigger_with_no_message(mock_update, mock_context, llm_plugin):
+  mock_update.message = None
+  mock_update.effective_chat.send_message = AsyncMock()
+  await llm_plugin.execute(mock_update, mock_context)
+  mock_update.effective_chat.send_message.assert_called_once_with("Message is unavailable")
+
+
+@pytest.mark.asyncio
+async def test_trigger_with_no_message_text(mock_update, mock_context, llm_plugin):
+  mock_update.message.text = None
+  await llm_plugin.handle_trigger(mock_update, mock_context)
+  mock_update.message.reply_text.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_process_query_missing_user(mock_update, mock_context, llm_plugin):
+  mock_update.effective_user = None
+  await llm_plugin.process_query(mock_update, mock_context, "test query")
+  mock_update.message.reply_text.assert_called_once_with("User or chat information missing")
+
+
+@pytest.mark.asyncio
+async def test_process_query_missing_chat(mock_update, mock_context, llm_plugin):
+  mock_update.effective_chat = None
+  await llm_plugin.process_query(mock_update, mock_context, "test query")
+  mock_update.message.reply_text.assert_called_once_with("User or chat information missing")
+
+
+@pytest.mark.asyncio
+async def test_initialize_missing_model_warning(caplog, mock_config):
+  config = MagicMock()
+  config.get.side_effect = lambda key, default=None: {
+    "plugins.llm": {"apikey": "test-key"},
+    "core.database": ":memory:",
+  }.get(key, default)
+
+  plugin = Plugin()
+  plugin.set_config(config)
+  plugin.initialize()
+  assert "missing model" in caplog.text.lower()

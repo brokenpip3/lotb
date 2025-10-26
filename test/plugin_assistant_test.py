@@ -772,3 +772,46 @@ async def test_trigger_with_special_command(assistant_plugin, mock_update, mock_
   await assistant_plugin.execute(mock_update, mock_context)
   reply_text = mock_update.message.reply_text.call_args[0][0]
   assert "🤖 Assistant help" in reply_text
+
+
+@pytest.mark.asyncio
+async def test_trigger_with_no_message(assistant_plugin, mock_update, mock_context):
+  mock_update.message = None
+  await assistant_plugin.handle_trigger(mock_update, mock_context)
+  mock_update.effective_chat.send_message.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_trigger_with_no_message_text(assistant_plugin, mock_update, mock_context):
+  mock_update.message.text = None
+  await assistant_plugin.handle_trigger(mock_update, mock_context)
+  mock_update.message.reply_text.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_process_query_exception(assistant_plugin, mock_update, mock_context):
+  mock_update.message.text = "test this test"
+
+  with patch.object(assistant_plugin, "_ensure_tools_loaded", new_callable=AsyncMock) as mock_ensure:
+    mock_ensure.side_effect = Exception("unexpected error")
+    await assistant_plugin.process_query(mock_update, mock_context, "test this test")
+    reply_text = mock_update.message.reply_text.call_args[0][0]
+    assert "sorry, something went wrong" in reply_text
+    assert "unexpected error" in reply_text
+
+
+@pytest.mark.asyncio
+async def test_execute_validate_update_fails(assistant_plugin, mock_update, mock_context):
+  mock_update.message.text = "we need to talk"
+  mock_update.effective_chat = None
+  await assistant_plugin.execute(mock_update, mock_context)
+  mock_update.message.reply_text.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_execute_no_message_text_shows_help(assistant_plugin, mock_update, mock_context):
+  assistant_plugin.pattern_actions = {}
+  mock_update.message.text = None
+  await assistant_plugin.execute(mock_update, mock_context)
+  reply_text = mock_update.message.reply_text.call_args[0][0]
+  assert "🤖 Assistant help" in reply_text
