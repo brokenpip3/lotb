@@ -1,3 +1,5 @@
+import re
+
 from telegram import Update
 from telegram.ext import ContextTypes
 
@@ -64,7 +66,14 @@ class Plugin(PluginBase):
     if not plugin_config.get("model"):
       self.log_warning("Missing model in configuration")
 
-    self.max_history = plugin_config.get("max_history", 3)  # TODO: make this configurable
+    self.max_history = plugin_config.get("maxhistory", 3)
+    self.trigger_name = plugin_config.get("friendlyname")
+
+    if self.trigger_name:
+      trigger_pattern = rf"(?i)(?:hey\s+)?{re.escape(self.trigger_name)}[\s,:!?]+"
+      self.pattern_actions = {trigger_pattern: self.handle_trigger}
+      self.log_info(f"LLM trigger enabled with name: {self.trigger_name}")
+
     self.log_info(f"LLM plugin initialized with {self.max_history} message memory")
 
   def save_message(self, user_id: int, chat_id: int, role: str, content: str) -> None:
@@ -104,32 +113,32 @@ class Plugin(PluginBase):
       return [{"role": row[0], "content": row[1]} for row in self.db_cursor.fetchall()]
     return []
 
-  async def execute(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not update or not update.effective_chat:
-      if update and update.effective_chat:
-        await update.effective_chat.send_message("Message is unavailable")
-      return
-
+  async def handle_trigger(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
-      if update.effective_chat:
-        await update.effective_chat.send_message("Message is unavailable")
       return
 
+    # remove the trigger
+    trigger_pattern = rf"(?i)(?:hey\s+)?{re.escape(self.trigger_name)}[\s,:!?]+"
+    query = re.sub(trigger_pattern, "", update.message.text, count=1).strip()
+
+    if not query:
+      await self.reply_message(update, context, "yes? 🦕")
+      return
+
+    await self.process_query(update, context, query)
+
+  async def process_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE, query: str):
+    """Process an LLM query (extracted from execute for reuse with triggers)"""
     if not update.effective_user or not update.effective_chat:
       await self.reply_message(update, context, "User or chat information missing")
       return
 
     user_id = update.effective_user.id
     chat_id = update.effective_chat.id
-    query = update.message.text.replace("/llm", "", 1).strip()
-
-    if not query:
-      await self.reply_message(update, context, "Please provide a query")
-      return
 
     try:
       quoted_text = ""
-      if update.message.reply_to_message and update.message.reply_to_message.text:
+      if update.message and update.message.reply_to_message and update.message.reply_to_message.text:
         quoted_text = f"\n\nQuoted message:\n{update.message.reply_to_message.text}"
 
       history = self.get_conversation_history(user_id, chat_id)
@@ -158,3 +167,25 @@ class Plugin(PluginBase):
     except Exception as e:
       await self.reply_message(update, context, f"LLM error: {str(e)}")
       self.log_error(f"LLM query failed: {str(e)}")
+
+  async def execute(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if await self.intercept_patterns(update, context, self.pattern_actions):
+      return
+
+    if not update or not update.effective_chat:
+      if update and update.effective_chat:
+        await update.effective_chat.send_message("Message is unavailable")
+      return
+
+    if not update.message or not update.message.text:
+      if update.effective_chat:
+        await update.effective_chat.send_message("Message is unavailable")
+      return
+
+    query = update.message.text.replace("/llm", "", 1).strip()
+
+    if not query:
+      await self.reply_message(update, context, "Please provide a query")
+      return
+
+    await self.process_query(update, context, query)

@@ -1,4 +1,5 @@
 import json
+import re
 from contextlib import asynccontextmanager
 from functools import wraps
 from typing import Any
@@ -89,7 +90,7 @@ class Plugin(PluginBase):
     self.servers = cfg.get("mcpservers", [])
     self.model = cfg.get("model")
     self.api_key = cfg.get("apikey")
-    self.max_history = cfg.get("max_history", 3)
+    self.max_history = cfg.get("maxhistory", 3)
     self.capabilities_summary = None
     self.system_prompt_builder = SystemPromptBuilder(self.get_default_system_prompt())
     self.system_prompt_template = cfg.get("system_prompt", self.get_default_system_prompt())
@@ -99,6 +100,13 @@ class Plugin(PluginBase):
     self.resource_to_server_map = {}
     self.tools = None
     self.resources = None
+
+    self.trigger_name = cfg.get("friendlyname")
+
+    if self.trigger_name:
+      trigger_pattern = rf"(?i)(?:hey\s+)?{re.escape(self.trigger_name)}[\s,:!?]+"
+      self.pattern_actions = {trigger_pattern: self.handle_trigger}
+      self.log_info(f"Assistant trigger enabled with name: {self.trigger_name}")
 
     self.create_table("""
         CREATE TABLE IF NOT EXISTS assistant (
@@ -576,18 +584,21 @@ Servers:
       return [{"role": row[0], "content": row[1]} for row in self.db_cursor.fetchall()]
     return []
 
-  async def execute(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if not self._validate_update(update):
-      return
-
+  async def handle_trigger(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
-      await self.show_help(update, context)
-      return
-    text = self._extract_command_text(update.message.text if update.message else "")
-    if not text:
-      await self.show_help(update, context)
       return
 
+    # remove the trigger pattern
+    trigger_pattern = rf"(?i)(?:hey\s+)?{re.escape(self.trigger_name)}[\s,:!?]+"
+    text = re.sub(trigger_pattern, "", update.message.text, count=1).strip()
+
+    if not text:
+      await self.reply_message(update, context, "yes? 🦕")
+      return
+
+    await self.process_query(update, context, text)
+
+  async def process_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
     is_valid, error_msg = self.security_validator.validate_user_input(text)
     if not is_valid:
       self.log_warning(f"user input blocked: {error_msg}")
@@ -618,3 +629,21 @@ Servers:
         await self.reply_message(update, context, response)
     except Exception as e:
       await self.reply_message(update, context, f"sorry, something went wrong while processing your request: {str(e)}")
+
+  async def execute(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if await self.intercept_patterns(update, context, self.pattern_actions):
+      return
+
+    if not self._validate_update(update):
+      return
+
+    if not update.message or not update.message.text:
+      await self.show_help(update, context)
+      return
+
+    text = self._extract_command_text(update.message.text if update.message else "")
+    if not text:
+      await self.show_help(update, context)
+      return
+
+    await self.process_query(update, context, text)

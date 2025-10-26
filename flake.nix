@@ -87,7 +87,7 @@
             ruff
             mypy
             pre-commit
-            go-task
+            just
           ];
           PYTHONDONTWRITEBYTECODE = 1;
         };

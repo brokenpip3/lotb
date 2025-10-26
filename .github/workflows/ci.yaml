@@ -25,21 +25,17 @@ jobs:
       matrix:
         test: ["pytest", "fmt", "mypy", "flake-check", "coverage"]
     steps:
-    - uses: DeterminateSystems/nix-installer-action@786fff0690178f1234e4e1fe9b536e94f5433196 # v20
+    - uses: cachix/install-nix-action@a41eb7ceea97962224a9cc9b217ca915f8de2dfd # v31
       with:
-        diagnostic-endpoint: ""
-    # https://determinate.systems/posts/magic-nix-cache-free-tier-eol/
-    #- uses: DeterminateSystems/magic-nix-cache-action@v8
-    #  with:
-    #    diagnostic-endpoint: ""
+        github_access_token: ${{ secrets.GITHUB_TOKEN }}
     - name: Check out code
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v4
+      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
     - name: Test ${{ matrix.test }}
-      run: nix develop . --command task ${{ matrix.test }}
+      run: nix develop . --command just ${{ matrix.test }}
 
     - name: Coverage comment
       if: matrix.test == 'coverage'
-      uses: py-cov-action/python-coverage-comment-action@587892b1198e5e472097653a87e8f1339a251f38 # v3
+      uses: py-cov-action/python-coverage-comment-action@91aaf3b39c7e2331c6bc77767ce017f5160c5f11 # v3.38
       with:
         GITHUB_TOKEN: ${{ github.token }}
