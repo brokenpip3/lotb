@@ -32,7 +32,7 @@ jobs:
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
 
     - name: Test ${{ matrix.test }}
-      run: nix develop . --command task ${{ matrix.test }}
+      run: nix develop . --command just ${{ matrix.test }}
 
     - name: Coverage comment
       if: matrix.test == 'coverage'

@@ -37,7 +37,7 @@ jobs:
             echo "OVERRIDE_VERSION=0.0.0-dev" >> $GITHUB_ENV
           fi
       - name: build image
-        run: nix develop . --command task docker-build
+        run: nix develop . --command just docker-build
       - name: push image
         if: github.event_name != 'pull_request'
-        run: nix develop . --command task docker-push
+        run: nix develop . --command just docker-push

@@ -45,7 +45,6 @@
             pytest-asyncio
             pytest-cov
             types-python-dateutil
-            pip
           ];
           # Apparently this is not working
           disabledTests = [
@@ -88,7 +87,7 @@
             ruff
             mypy
             pre-commit
-            go-task
+            just
           ];
           PYTHONDONTWRITEBYTECODE = 1;
         };
