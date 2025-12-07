@@ -49,6 +49,7 @@ async def test_llm_success(mock_update, mock_context, llm_plugin):
 
 @pytest.mark.asyncio
 async def test_llm_missing_config(mock_update, mock_context):
+  mock_update.message.text = "/llm test"
   plugin = Plugin()
   with patch.object(plugin, "config", None):
     await plugin.execute(mock_update, mock_context)
@@ -311,6 +312,22 @@ async def test_trigger_with_punctuation_question(mock_update, mock_context, llm_
 
 
 @pytest.mark.asyncio
+async def test_trigger_with_space_only(mock_update, mock_context, llm_plugin):
+  mock_update.message.text = "Dino help me"
+  mock_response = MagicMock()
+  mock_response.choices = [MagicMock()]
+  mock_response.choices[0].message.content = "OK"
+
+  with (
+    patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)) as mock_llm,
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
+  ):
+    await llm_plugin.execute(mock_update, mock_context)
+    call_args = mock_llm.call_args
+    assert call_args[1]["messages"][1]["content"] == "help me"
+
+
+@pytest.mark.asyncio
 async def test_trigger_with_punctuation_colon(mock_update, mock_context, llm_plugin):
   mock_update.message.text = "Dino: do something"
   mock_response = MagicMock()
@@ -367,3 +384,17 @@ async def test_initialize_missing_model_warning(caplog, mock_config):
   plugin.set_config(config)
   plugin.initialize()
   assert "missing model" in caplog.text.lower()
+
+
+@pytest.mark.asyncio
+async def test_trigger_not_partial_match_giardino(mock_update, mock_context, llm_plugin):
+  mock_update.message.text = "giardino what's up"
+  result = await llm_plugin.intercept_patterns(mock_update, mock_context, llm_plugin.pattern_actions)
+  assert result is False, "Pattern should not match 'giardino'"
+
+
+@pytest.mark.asyncio
+async def test_trigger_not_partial_match_comodino(mock_update, mock_context, llm_plugin):
+  mock_update.message.text = "comodino, help me"
+  result = await llm_plugin.intercept_patterns(mock_update, mock_context, llm_plugin.pattern_actions)
+  assert result is False, "Pattern should not match 'comodino'"

@@ -70,7 +70,7 @@ class Plugin(PluginBase):
     self.trigger_name = plugin_config.get("friendlyname")
 
     if self.trigger_name:
-      trigger_pattern = rf"(?i)(?:hey\s+)?{re.escape(self.trigger_name)}[\s,:!?]+"
+      trigger_pattern = rf"(?i)\b(?:hey\s+)?{re.escape(self.trigger_name)}\b[\s,:!?]*"
       self.pattern_actions = {trigger_pattern: self.handle_trigger}
       self.log_info(f"LLM trigger enabled with name: {self.trigger_name}")
 
@@ -118,7 +118,7 @@ class Plugin(PluginBase):
       return
 
     # remove the trigger
-    trigger_pattern = rf"(?i)(?:hey\s+)?{re.escape(self.trigger_name)}[\s,:!?]+"
+    trigger_pattern = rf"(?i)\b(?:hey\s+)?{re.escape(self.trigger_name)}\b[\s,:!?]*"
     query = re.sub(trigger_pattern, "", update.message.text, count=1).strip()
 
     if not query:

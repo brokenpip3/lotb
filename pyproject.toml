@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "lotb"
-version = "0.2.1"
+version = "0.2.2"
 description = "Lord of the Telegram bots"
 authors = ["brokenpip3 <brokenpip3@gmail.com>"]
 license = "MIT"
@@ -15,7 +15,7 @@ python-telegram-bot = {extras = ["job-queue"], version = "^22.4"}
 feedparser = "^6.0.12"
 python-dateutil = "^2.9.0.post0"
 typing-extensions = "^4.15.0"
-litellm = "1.75.5"
+litellm = "1.80.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.2"
