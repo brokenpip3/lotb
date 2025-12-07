@@ -104,7 +104,7 @@ class Plugin(PluginBase):
     self.trigger_name = cfg.get("friendlyname")
 
     if self.trigger_name:
-      trigger_pattern = rf"(?i)(?:hey\s+)?{re.escape(self.trigger_name)}[\s,:!?]+"
+      trigger_pattern = rf"(?i)\b(?:hey\s+)?{re.escape(self.trigger_name)}\b[\s,:!?]*"
       self.pattern_actions = {trigger_pattern: self.handle_trigger}
       self.log_info(f"Assistant trigger enabled with name: {self.trigger_name}")
 
@@ -589,7 +589,7 @@ Servers:
       return
 
     # remove the trigger pattern
-    trigger_pattern = rf"(?i)(?:hey\s+)?{re.escape(self.trigger_name)}[\s,:!?]+"
+    trigger_pattern = rf"(?i)\b(?:hey\s+)?{re.escape(self.trigger_name)}\b[\s,:!?]*"
     text = re.sub(trigger_pattern, "", update.message.text, count=1).strip()
 
     if not text:
