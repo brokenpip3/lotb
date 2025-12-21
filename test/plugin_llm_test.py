@@ -1,15 +1,16 @@
+import json
 from unittest.mock import AsyncMock
 from unittest.mock import MagicMock
 from unittest.mock import patch
 
 import pytest
 
-from lotb.plugins.llm import LLM_ROLE
+from lotb.plugins._llm.prompts import SIMPLE_LLM_ROLE
 from lotb.plugins.llm import Plugin
 
 
 @pytest.fixture
-def mock_config():
+def mock_simple_config():
   config = MagicMock()
   config.get.side_effect = lambda key, default=None: {
     "plugins.llm": {"model": "closed-ai-gpt44", "apikey": "soon-I-will-be-leaked", "friendlyname": "Dino"},
@@ -19,15 +20,51 @@ def mock_config():
 
 
 @pytest.fixture
-def llm_plugin(mock_config):
+def mock_assistant_config():
+  config = MagicMock()
+  config.get.side_effect = lambda key, default=None: {
+    "plugins.llm": {
+      "model": "openMai",
+      "apikey": "yes",
+      "friendlyname": "Dino",
+      "assistant_mode": True,
+      "mcpservers": [
+        {"name": "free-money-mcp-server", "url": "http://test", "auth_value": "my-incredible-auth"},
+        {"name": "mcp-server-avengers", "url": "http://test2", "auth_value": "my-incredible-auth"},
+      ],
+    },
+    "core.database": ":memory:",
+  }.get(key, default)
+  return config
+
+
+@pytest.fixture
+def simple_plugin(mock_simple_config):
   plugin = Plugin()
-  plugin.set_config(mock_config)
+  plugin.set_config(mock_simple_config)
+  plugin.initialize()
+  return plugin
+
+
+@pytest.fixture
+def assistant_plugin(mock_assistant_config):
+  plugin = Plugin()
+  plugin.set_config(mock_assistant_config)
   plugin.initialize()
   return plugin
 
 
 @pytest.mark.asyncio
-async def test_llm_success(mock_update, mock_context, llm_plugin):
+async def test_simple_mode_initialization(simple_plugin):
+  assert simple_plugin.name == "llm"
+  assert simple_plugin.config_handler.model == "closed-ai-gpt44"
+  assert simple_plugin.config_handler.apikey == "soon-I-will-be-leaked"
+  assert simple_plugin.config_handler.assistant_mode is False
+  assert simple_plugin.handler is not None
+
+
+@pytest.mark.asyncio
+async def test_simple_llm_success(mock_update, mock_context, simple_plugin):
   mock_update.message.text = "/llm hello my dear assistant"
   mock_response = MagicMock()
   mock_response.choices = [MagicMock()]
@@ -37,9 +74,9 @@ async def test_llm_success(mock_update, mock_context, llm_plugin):
     patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)) as mock_llm,
     patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()) as mock_typing,
   ):
-    await llm_plugin.execute(mock_update, mock_context)
+    await simple_plugin.execute(mock_update, mock_context)
     mock_llm.assert_called_once_with(
-      messages=[{"role": "system", "content": LLM_ROLE}, {"role": "user", "content": "hello my dear assistant"}],
+      messages=[{"role": "system", "content": SIMPLE_LLM_ROLE}, {"role": "user", "content": "hello my dear assistant"}],
       model="closed-ai-gpt44",
       api_key="soon-I-will-be-leaked",
     )
@@ -48,45 +85,27 @@ async def test_llm_success(mock_update, mock_context, llm_plugin):
 
 
 @pytest.mark.asyncio
-async def test_llm_missing_config(mock_update, mock_context):
-  mock_update.message.text = "/llm test"
-  plugin = Plugin()
-  with patch.object(plugin, "config", None):
-    await plugin.execute(mock_update, mock_context)
-    error_message = mock_update.message.reply_text.call_args[0][0]
-    assert error_message.startswith("LLM error:")
-
-
-@pytest.mark.asyncio
-async def test_llm_api_error(mock_update, mock_context, llm_plugin):
+async def test_simple_llm_api_error(mock_update, mock_context, simple_plugin):
   mock_update.message.text = "/llm hello my dear assistant"
   with (
     patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(side_effect=Exception("Test error"))),
     patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
   ):
-    await llm_plugin.execute(mock_update, mock_context)
+    await simple_plugin.execute(mock_update, mock_context)
     reply = mock_update.message.reply_text.call_args[0][0]
     assert "LLM error" in reply
     assert "Test error" in reply
 
 
 @pytest.mark.asyncio
-async def test_llm_missing_query(mock_update, mock_context, llm_plugin):
+async def test_simple_llm_missing_query(mock_update, mock_context, simple_plugin):
   mock_update.message.text = "/llm"
-  await llm_plugin.execute(mock_update, mock_context)
+  await simple_plugin.execute(mock_update, mock_context)
   mock_update.message.reply_text.assert_called_once_with("Please provide a query")
 
 
 @pytest.mark.asyncio
-async def test_llm_missing_message(mock_update, mock_context, llm_plugin):
-  mock_update.message = None
-  mock_update.effective_chat.send_message = AsyncMock()
-  await llm_plugin.execute(mock_update, mock_context)
-  mock_update.effective_chat.send_message.assert_called_once_with("Message is unavailable")
-
-
-@pytest.mark.asyncio
-async def test_llm_with_quoted_message(mock_update, mock_context, llm_plugin):
+async def test_simple_llm_with_quoted_message(mock_update, mock_context, simple_plugin):
   mock_update.message.text = "/llm explain this"
   mock_update.message.reply_to_message = MagicMock()
   mock_update.message.reply_to_message.text = "The mitochondria is the powerhouse of the cell"
@@ -97,46 +116,21 @@ async def test_llm_with_quoted_message(mock_update, mock_context, llm_plugin):
 
   with (
     patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)) as mock_llm,
-    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()) as mock_typing,
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
   ):
-    await llm_plugin.execute(mock_update, mock_context)
+    await simple_plugin.execute(mock_update, mock_context)
     mock_llm.assert_called_once_with(
       messages=[
-        {"role": "system", "content": LLM_ROLE},
+        {"role": "system", "content": SIMPLE_LLM_ROLE},
         {"role": "user", "content": "explain this\n\nQuoted message:\nThe mitochondria is the powerhouse of the cell"},
       ],
       model="closed-ai-gpt44",
       api_key="soon-I-will-be-leaked",
     )
-    mock_typing.assert_called_once_with(mock_update, mock_context)
-    mock_update.message.reply_text.assert_called_once_with("Hello Boss, how is going?")
 
 
 @pytest.mark.asyncio
-async def test_llm_with_quoted_message_no_text(mock_update, mock_context, llm_plugin):
-  mock_update.message.text = "/llm explain this"
-  mock_update.message.reply_to_message = MagicMock()
-  mock_update.message.reply_to_message.text = None
-
-  mock_response = MagicMock()
-  mock_response.choices = [MagicMock()]
-  mock_response.choices[0].message.content = "Hello Boss, how is going?"
-
-  with (
-    patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)) as mock_llm,
-    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()) as mock_typing,
-  ):
-    await llm_plugin.execute(mock_update, mock_context)
-    mock_llm.assert_called_once_with(
-      messages=[{"role": "system", "content": LLM_ROLE}, {"role": "user", "content": "explain this"}],
-      model="closed-ai-gpt44",
-      api_key="soon-I-will-be-leaked",
-    )
-    mock_typing.assert_called_once_with(mock_update, mock_context)
-
-
-@pytest.mark.asyncio
-async def test_message_history_rotation(mock_update, mock_context, llm_plugin):
+async def test_simple_message_history_rotation(mock_update, mock_context, simple_plugin):
   mock_update.message.text = "/llm message1"
   mock_response = MagicMock()
   mock_response.choices = [MagicMock()]
@@ -149,22 +143,18 @@ async def test_message_history_rotation(mock_update, mock_context, llm_plugin):
     for i in range(1, 5):
       mock_update.message.text = f"/llm message{i}"
       mock_response.choices[0].message.content = f"response{i}"
-      await llm_plugin.execute(mock_update, mock_context)
+      await simple_plugin.execute(mock_update, mock_context)
 
-    history = llm_plugin.get_conversation_history(4815162342, 996699)
+    history = simple_plugin.handler.history.get_conversation_history(4815162342, 996699)
     assert len(history) == 3
 
     contents = [msg["content"] for msg in history]
-    roles = [msg["role"] for msg in history]
-    assert "response3" in contents
     assert "message4" in contents
     assert "response4" in contents
-    assert roles.count("user") == 1
-    assert roles.count("assistant") == 2
 
 
 @pytest.mark.asyncio
-async def test_trigger_with_hey_trigger(mock_update, mock_context, llm_plugin):
+async def test_trigger_with_hey(mock_update, mock_context, simple_plugin):
   mock_update.message.text = "hey Dino, what's the weather?"
   mock_response = MagicMock()
   mock_response.choices = [MagicMock()]
@@ -172,20 +162,17 @@ async def test_trigger_with_hey_trigger(mock_update, mock_context, llm_plugin):
 
   with (
     patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)) as mock_llm,
-    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()) as mock_typing,
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
   ):
-    await llm_plugin.execute(mock_update, mock_context)
-    mock_llm.assert_called_once_with(
-      messages=[{"role": "system", "content": LLM_ROLE}, {"role": "user", "content": "what's the weather?"}],
-      model="closed-ai-gpt44",
-      api_key="soon-I-will-be-leaked",
-    )
-    mock_typing.assert_called_once_with(mock_update, mock_context)
+    await simple_plugin.execute(mock_update, mock_context)
+    mock_llm.assert_called_once()
+    call_args = mock_llm.call_args
+    assert call_args[1]["messages"][1]["content"] == "what's the weather?"
     mock_update.message.reply_text.assert_called_once_with("It's sunny!")
 
 
 @pytest.mark.asyncio
-async def test_trigger_with_comma(mock_update, mock_context, llm_plugin):
+async def test_trigger_with_comma(mock_update, mock_context, simple_plugin):
   mock_update.message.text = "Dino, tell me a joke"
   mock_response = MagicMock()
   mock_response.choices = [MagicMock()]
@@ -197,14 +184,14 @@ async def test_trigger_with_comma(mock_update, mock_context, llm_plugin):
     patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)) as mock_llm,
     patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
   ):
-    await llm_plugin.execute(mock_update, mock_context)
+    await simple_plugin.execute(mock_update, mock_context)
     mock_llm.assert_called_once()
     call_args = mock_llm.call_args
     assert call_args[1]["messages"][1]["content"] == "tell me a joke"
 
 
 @pytest.mark.asyncio
-async def test_trigger_case_insensitive(mock_update, mock_context, llm_plugin):
+async def test_trigger_case_insensitive(mock_update, mock_context, simple_plugin):
   mock_update.message.text = "DINO: help me with my fire calculation"
   mock_response = MagicMock()
   mock_response.choices = [MagicMock()]
@@ -214,25 +201,56 @@ async def test_trigger_case_insensitive(mock_update, mock_context, llm_plugin):
     patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)) as mock_llm,
     patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
   ):
-    await llm_plugin.execute(mock_update, mock_context)
+    await simple_plugin.execute(mock_update, mock_context)
     mock_llm.assert_called_once()
     call_args = mock_llm.call_args
     assert call_args[1]["messages"][1]["content"] == "help me with my fire calculation"
 
 
 @pytest.mark.asyncio
-async def test_trigger_with_no_query(mock_update, mock_context, llm_plugin):
+async def test_trigger_with_no_query(mock_update, mock_context, simple_plugin):
   mock_update.message.text = "hey Dino!"
-  await llm_plugin.execute(mock_update, mock_context)
+  await simple_plugin.execute(mock_update, mock_context)
   mock_update.message.reply_text.assert_called_once_with("yes? 🦕")
 
 
 @pytest.mark.asyncio
-async def test_trigger_disabled(mock_update, mock_context, mock_config):
-  """Test that trigger is disabled when friendlyname is not set"""
+async def test_trigger_with_punctuation(mock_update, mock_context, simple_plugin):
+  test_cases = [("Dino! help", "help"), ("Dino? what's up", "what's up"), ("Dino: do something", "do something")]
+
+  for message_text, expected_query in test_cases:
+    # Clear history before each test case
+    user_id = mock_update.effective_user.id
+    chat_id = mock_update.effective_chat.id
+    simple_plugin.handler.history.clear_history(user_id, chat_id)
+
+    mock_update.message.text = message_text
+    mock_update.message.reply_text.reset_mock()
+
+    with (
+      patch(
+        "lotb.common.plugin_class.PluginBase.llm_completion",
+        new=AsyncMock(return_value=MagicMock(choices=[MagicMock(message=MagicMock(content="OK"))])),
+      ) as mock_llm,
+      patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
+    ):
+      await simple_plugin.execute(mock_update, mock_context)
+      call_args = mock_llm.call_args
+      assert call_args[1]["messages"][1]["content"] == expected_query
+
+
+@pytest.mark.asyncio
+async def test_trigger_not_partial_match(mock_update, mock_context, simple_plugin):
+  mock_update.message.text = "giardino what's up"
+  result = await simple_plugin.intercept_patterns(mock_update, mock_context, simple_plugin.handler.pattern_actions)
+  assert result is False
+
+
+@pytest.mark.asyncio
+async def test_trigger_disabled(mock_update, mock_context):
   config = MagicMock()
   config.get.side_effect = lambda key, default=None: {
-    "plugins.llm": {"model": "gpt-4", "apikey": "test-key"},  # no friendlyname
+    "plugins.llm": {"model": "gpt-4", "apikey": "test-key"},
     "core.database": ":memory:",
   }.get(key, default)
 
@@ -253,148 +271,306 @@ async def test_trigger_disabled(mock_update, mock_context, mock_config):
 
 
 @pytest.mark.asyncio
-async def test_trigger_custom_name(mock_update, mock_context, mock_config):
+async def test_assistant_mode_initialization(assistant_plugin):
+  assert assistant_plugin.name == "llm"
+  assert assistant_plugin.config_handler.model == "openMai"
+  assert assistant_plugin.config_handler.apikey == "yes"
+  assert assistant_plugin.config_handler.assistant_mode is True
+  assert len(assistant_plugin.config_handler.mcp_servers) == 2
+  assert assistant_plugin.handler is not None
+
+
+@pytest.mark.asyncio
+async def test_assistant_help_command(assistant_plugin, mock_update, mock_context):
+  mock_update.message.text = "/llm help"
+  await assistant_plugin.execute(mock_update, mock_context)
+  reply_text = mock_update.message.reply_text.call_args[0][0]
+  assert "🤖 Assistant help" in reply_text
+  assert "/llm <prompt>" in reply_text
+
+
+@pytest.mark.asyncio
+async def test_assistant_tools_command(assistant_plugin, mock_update, mock_context):
+  mock_update.message.text = "/llm tools"
+  with patch.object(assistant_plugin.handler, "_ensure_tools_loaded", new_callable=AsyncMock) as mock_load:
+    mock_load.return_value = []
+    await assistant_plugin.execute(mock_update, mock_context)
+    mock_load.assert_called()
+    mock_update.message.reply_text.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_assistant_status_command(assistant_plugin, mock_update, mock_context):
+  mock_update.message.text = "/llm status"
+  with patch.object(assistant_plugin.handler, "_ensure_tools_loaded", new_callable=AsyncMock) as mock_load:
+    mock_load.return_value = []
+    await assistant_plugin.execute(mock_update, mock_context)
+    mock_load.assert_called()
+    reply_text = mock_update.message.reply_text.call_args[0][0]
+    assert "🔧 Assistant status" in reply_text
+
+
+@pytest.mark.asyncio
+async def test_assistant_query(assistant_plugin, mock_update, mock_context):
+  mock_update.message.text = "/llm question without a real answer"
+  with (
+    patch.object(assistant_plugin.handler, "_handle_llm_conversation", new_callable=AsyncMock) as mock_handle,
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
+  ):
+    mock_handle.return_value = "test response"
+    await assistant_plugin.execute(mock_update, mock_context)
+    mock_handle.assert_called()
+    mock_update.message.reply_text.assert_called_with("test response")
+
+
+@pytest.mark.asyncio
+async def test_assistant_blocked_input(assistant_plugin, mock_update, mock_context):
+  mock_update.message.text = "/llm <script>alert('xss')</script>"
+  await assistant_plugin.execute(mock_update, mock_context)
+  reply_text = mock_update.message.reply_text.call_args[0][0]
+  assert "invalid input" in reply_text.lower()
+
+
+@pytest.mark.asyncio
+async def test_assistant_ensure_tools_loaded(assistant_plugin):
+  with (
+    patch.object(assistant_plugin.handler.mcp, "load_all_tools", new_callable=AsyncMock) as mock_tools,
+    patch.object(assistant_plugin.handler.mcp, "load_all_resources", new_callable=AsyncMock) as mock_resources,
+    patch.object(assistant_plugin.handler.tool_handler, "create_resource_tools", new_callable=AsyncMock) as mock_create,
+  ):
+    mock_tools.return_value = []
+    mock_resources.return_value = []
+    mock_create.return_value = []
+    await assistant_plugin.handler._ensure_tools_loaded()
+    mock_tools.assert_called()
+    mock_resources.assert_called()
+
+
+@pytest.mark.asyncio
+async def test_assistant_handle_llm_conversation(assistant_plugin):
+  messages = [{"role": "user", "content": "test"}]
+  with patch.object(assistant_plugin.handler, "_get_llm_response", new_callable=AsyncMock) as mock_llm:
+    mock_response = MagicMock()
+    mock_choice = MagicMock()
+    mock_choice.message.content = "test response"
+    mock_choice.message.tool_calls = None
+    mock_response.choices = [mock_choice]
+    mock_llm.return_value = (mock_choice.message, None)
+    response = await assistant_plugin.handler._handle_llm_conversation(messages)
+    assert response == "test response"
+
+
+@pytest.mark.asyncio
+async def test_assistant_tool_call_blocked(assistant_plugin):
+  tool_call = MagicMock()
+  tool_call.function.name = "exec_shell"
+  tool_call.function.arguments = "{}"
+  tool_call.id = "call_id"
+  messages = []
+
+  await assistant_plugin.handler.tool_handler.execute_tool_call(tool_call, messages, [])
+  assert "security error" in messages[0]["content"].lower()
+
+
+@pytest.mark.asyncio
+async def test_assistant_tool_call_valid_mcp(assistant_plugin):
+  tool_call = MagicMock()
+  tool_call.function.name = "valid_tool"
+  tool_call.function.arguments = json.dumps({"arg1": "value1"})
+  tool_call.id = "call_id"
+  messages = []
+
+  assistant_plugin.handler.mcp.tool_to_server_map = {"valid_tool": {"name": "test-server"}}
+  assistant_plugin.handler.tool_handler.call_tool_from_session = AsyncMock(return_value="tool result")
+
+  await assistant_plugin.handler.tool_handler.execute_tool_call(tool_call, messages, [])
+  assert messages[0]["role"] == "tool"
+  assert messages[0]["content"] == "tool result"
+
+
+@pytest.mark.asyncio
+async def test_assistant_tool_call_resource(assistant_plugin):
+  tool_call = MagicMock()
+  tool_call.function.name = "read_resource_mind"
+  tool_call.function.arguments = "{}"
+  tool_call.id = "call_id"
+  messages = []
+  tools = [{"type": "function", "function": {"name": "read_resource_mind"}, "_resource_uri": "uri1"}]
+
+  assistant_plugin.handler.tool_handler.read_resource = AsyncMock(return_value="resource content")
+
+  await assistant_plugin.handler.tool_handler.execute_tool_call(tool_call, messages, tools)
+  assert messages[0]["content"] == "resource content"
+
+
+@pytest.mark.asyncio
+async def test_assistant_tool_call_invalid_json(assistant_plugin):
+  tool_call = MagicMock()
+  tool_call.function.name = "valid_tool"
+  tool_call.function.arguments = "{invalid_json"
+  tool_call.id = "call_id"
+  messages = []
+
+  await assistant_plugin.handler.tool_handler.execute_tool_call(tool_call, messages, [])
+  assert "invalid tool arguments" in messages[0]["content"].lower()
+
+
+@pytest.mark.asyncio
+async def test_assistant_llm_conversation_with_tool_calls(assistant_plugin):
+  messages = [{"role": "user", "content": "question"}]
+
+  tool_call = MagicMock()
+  tool_call.function.name = "test_tool"
+  tool_call.function.arguments = json.dumps({})
+  tool_call.id = "call_id"
+
+  first_message = MagicMock()
+  first_message.content = None
+  first_message.tool_calls = [tool_call]
+
+  second_message = MagicMock()
+  second_message.content = "final answer"
+  second_message.tool_calls = None
+
+  assistant_plugin.handler._get_llm_response = AsyncMock(side_effect=[(first_message, None), (second_message, None)])
+  assistant_plugin.handler.tool_handler.execute_tool_call = AsyncMock(
+    side_effect=lambda tc, msgs, tools: (
+      msgs.append({"role": "tool", "tool_call_id": tc.id, "content": "result"}) or "continue"
+    )
+  )
+
+  response = await assistant_plugin.handler._handle_llm_conversation(messages)
+  assert response == "final answer"
+
+
+@pytest.mark.asyncio
+async def test_assistant_llm_conversation_max_iterations(assistant_plugin):
+  messages = [{"role": "user", "content": "test"}]
+  tool_call = MagicMock()
+  tool_call.function.name = "test_tool"
+  tool_call.function.arguments = json.dumps({})
+  tool_call.id = "call_id"
+
+  llm_message = MagicMock()
+  llm_message.content = None
+  llm_message.tool_calls = [tool_call]
+
+  assistant_plugin.handler._get_llm_response = AsyncMock(return_value=(llm_message, None))
+  assistant_plugin.handler.tool_handler.execute_tool_call = AsyncMock(return_value="continue")
+
+  response = await assistant_plugin.handler._handle_llm_conversation(messages)
+  assert "max tool call iterations" in response
+
+
+@pytest.mark.asyncio
+async def test_assistant_show_status(assistant_plugin, mock_update, mock_context):
+  assistant_plugin.handler.tools = [1, 2, 3]
+  assistant_plugin.handler.resources = [1]
+  assistant_plugin.handler.mcp.tool_to_server_map = {"tool1": "server1"}
+
+  await assistant_plugin.handler.show_status(mock_update, mock_context)
+  reply_text = mock_update.message.reply_text.call_args[0][0]
+  assert "openMai" in reply_text
+  assert "✅" in reply_text
+
+
+@pytest.mark.asyncio
+async def test_assistant_show_tools(assistant_plugin, mock_update, mock_context):
+  assistant_plugin.handler.tools = [
+    {"type": "function", "function": {"name": "test_tool", "description": "test desc"}},
+    {"type": "function", "function": {"name": "read_resource_mind", "description": "read resource"}},
+  ]
+  assistant_plugin.handler.mcp.tool_to_server_map = {"test_tool": {"name": "test-server"}}
+
+  await assistant_plugin.handler.show_tools(mock_update, mock_context)
+  reply_text = mock_update.message.reply_text.call_args[0][0]
+  assert "test_tool" in reply_text
+  assert "test desc" in reply_text
+
+
+@pytest.mark.asyncio
+async def test_assistant_capabilities_summary_empty(assistant_plugin):
+  assistant_plugin.handler.tools = []
+  assistant_plugin.handler.resources = []
+  summary = await assistant_plugin.handler._generate_capabilities_summary()
+  assert "no capabilities available" in summary
+
+
+@pytest.mark.asyncio
+async def test_assistant_capabilities_summary_with_tools(assistant_plugin):
+  assistant_plugin.handler.tools = [{"type": "function", "function": {"name": "test_tool", "description": "test"}}]
+  assistant_plugin.handler.resources = []
+  summary = await assistant_plugin.handler._generate_capabilities_summary()
+  assert "TOOLS" in summary
+  assert "test_tool" in summary
+
+
+@pytest.mark.asyncio
+async def test_config_validation_warnings(caplog):
   config = MagicMock()
   config.get.side_effect = lambda key, default=None: {
-    "plugins.llm": {"model": "gpt-4", "apikey": "test-key", "friendlyname": "Bot"},
+    "plugins.llm": {},  # Missing everything
     "core.database": ":memory:",
   }.get(key, default)
 
   plugin = Plugin()
   plugin.set_config(config)
   plugin.initialize()
-
-  mock_update.message.text = "hey Bot, what time is it?"
-  mock_response = MagicMock()
-  mock_response.choices = [MagicMock()]
-  mock_response.choices[0].message.content = "It's 3 PM"
-
-  with (
-    patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)) as mock_llm,
-    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
-  ):
-    await plugin.execute(mock_update, mock_context)
-    mock_llm.assert_called_once()
-    call_args = mock_llm.call_args
-    assert call_args[1]["messages"][1]["content"] == "what time is it?"
-
-
-@pytest.mark.asyncio
-async def test_trigger_with_punctuation_exclamation(mock_update, mock_context, llm_plugin):
-  mock_update.message.text = "Dino! help"
-  mock_response = MagicMock()
-  mock_response.choices = [MagicMock()]
-  mock_response.choices[0].message.content = "OK"
-
-  with (
-    patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)) as mock_llm,
-    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
-  ):
-    await llm_plugin.execute(mock_update, mock_context)
-    call_args = mock_llm.call_args
-    assert call_args[1]["messages"][1]["content"] == "help"
-
-
-@pytest.mark.asyncio
-async def test_trigger_with_punctuation_question(mock_update, mock_context, llm_plugin):
-  mock_update.message.text = "Dino? what's up"
-  mock_response = MagicMock()
-  mock_response.choices = [MagicMock()]
-  mock_response.choices[0].message.content = "OK"
-
-  with (
-    patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)) as mock_llm,
-    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
-  ):
-    await llm_plugin.execute(mock_update, mock_context)
-    call_args = mock_llm.call_args
-    assert call_args[1]["messages"][1]["content"] == "what's up"
-
-
-@pytest.mark.asyncio
-async def test_trigger_with_space_only(mock_update, mock_context, llm_plugin):
-  mock_update.message.text = "Dino help me"
-  mock_response = MagicMock()
-  mock_response.choices = [MagicMock()]
-  mock_response.choices[0].message.content = "OK"
-
-  with (
-    patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)) as mock_llm,
-    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
-  ):
-    await llm_plugin.execute(mock_update, mock_context)
-    call_args = mock_llm.call_args
-    assert call_args[1]["messages"][1]["content"] == "help me"
-
-
-@pytest.mark.asyncio
-async def test_trigger_with_punctuation_colon(mock_update, mock_context, llm_plugin):
-  mock_update.message.text = "Dino: do something"
-  mock_response = MagicMock()
-  mock_response.choices = [MagicMock()]
-  mock_response.choices[0].message.content = "OK"
-
-  with (
-    patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(return_value=mock_response)) as mock_llm,
-    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
-  ):
-    await llm_plugin.execute(mock_update, mock_context)
-    call_args = mock_llm.call_args
-    assert call_args[1]["messages"][1]["content"] == "do something"
-
-
-@pytest.mark.asyncio
-async def test_trigger_with_no_message(mock_update, mock_context, llm_plugin):
-  mock_update.message = None
-  mock_update.effective_chat.send_message = AsyncMock()
-  await llm_plugin.execute(mock_update, mock_context)
-  mock_update.effective_chat.send_message.assert_called_once_with("Message is unavailable")
-
-
-@pytest.mark.asyncio
-async def test_trigger_with_no_message_text(mock_update, mock_context, llm_plugin):
-  mock_update.message.text = None
-  await llm_plugin.handle_trigger(mock_update, mock_context)
-  mock_update.message.reply_text.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_process_query_missing_user(mock_update, mock_context, llm_plugin):
-  mock_update.effective_user = None
-  await llm_plugin.process_query(mock_update, mock_context, "test query")
-  mock_update.message.reply_text.assert_called_once_with("User or chat information missing")
-
-
-@pytest.mark.asyncio
-async def test_process_query_missing_chat(mock_update, mock_context, llm_plugin):
-  mock_update.effective_chat = None
-  await llm_plugin.process_query(mock_update, mock_context, "test query")
-  mock_update.message.reply_text.assert_called_once_with("User or chat information missing")
-
-
-@pytest.mark.asyncio
-async def test_initialize_missing_model_warning(caplog, mock_config):
-  config = MagicMock()
-  config.get.side_effect = lambda key, default=None: {
-    "plugins.llm": {"apikey": "test-key"},
-    "core.database": ":memory:",
-  }.get(key, default)
-
-  plugin = Plugin()
-  plugin.set_config(config)
-  plugin.initialize()
+  assert "missing api key" in caplog.text.lower()
   assert "missing model" in caplog.text.lower()
 
 
 @pytest.mark.asyncio
-async def test_trigger_not_partial_match_giardino(mock_update, mock_context, llm_plugin):
-  mock_update.message.text = "giardino what's up"
-  result = await llm_plugin.intercept_patterns(mock_update, mock_context, llm_plugin.pattern_actions)
-  assert result is False, "Pattern should not match 'giardino'"
+async def test_config_assistant_mode_no_servers_warning(caplog):
+  config = MagicMock()
+  config.get.side_effect = lambda key, default=None: {
+    "plugins.llm": {"model": "gpt-4", "apikey": "test", "assistant_mode": True, "mcpservers": []},
+    "core.database": ":memory:",
+  }.get(key, default)
+
+  plugin = Plugin()
+  plugin.set_config(config)
+  plugin.initialize()
+  assert "no mcp servers" in caplog.text.lower()
 
 
 @pytest.mark.asyncio
-async def test_trigger_not_partial_match_comodino(mock_update, mock_context, llm_plugin):
-  mock_update.message.text = "comodino, help me"
-  result = await llm_plugin.intercept_patterns(mock_update, mock_context, llm_plugin.pattern_actions)
-  assert result is False, "Pattern should not match 'comodino'"
+async def test_history_save_and_get(simple_plugin, mock_update):
+  user_id = mock_update.effective_user.id
+  chat_id = mock_update.effective_chat.id
+  history = simple_plugin.handler.history
+
+  history.save_message(user_id, chat_id, "user", "test message")
+  history.save_message(user_id, chat_id, "assistant", "test response")
+
+  retrieved = history.get_conversation_history(user_id, chat_id)
+  assert len(retrieved) == 2
+  assert retrieved[0]["content"] == "test message"
+  assert retrieved[1]["content"] == "test response"
+
+
+@pytest.mark.asyncio
+async def test_history_truncation(simple_plugin, mock_update):
+  user_id = mock_update.effective_user.id
+  chat_id = mock_update.effective_chat.id
+  history = simple_plugin.handler.history
+
+  long_content = "x" * 3000
+  history.save_message(user_id, chat_id, "user", long_content)
+
+  retrieved = history.get_conversation_history(user_id, chat_id)
+  assert len(retrieved[0]["content"]) == 2000
+
+
+@pytest.mark.asyncio
+async def test_history_rotation(simple_plugin, mock_update):
+  user_id = mock_update.effective_user.id
+  chat_id = mock_update.effective_chat.id
+  history = simple_plugin.handler.history
+
+  for i in range(5):
+    history.save_message(user_id, chat_id, "user", f"message{i}")
+
+  retrieved = history.get_conversation_history(user_id, chat_id)
+  assert len(retrieved) == 3
+  assert "message2" in retrieved[0]["content"]

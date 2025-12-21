@@ -147,9 +147,14 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
   [plugins.remindme]
   enabled = true # enable or disable the plugin
   ```
-* [llm](./lotb/plugins/llm.py): A plugin that will let you use a llm inside your chat and also keep history of the conversation per user,
-  so each user can have its own conversation with the llm. Under the hood use [litellm](https://github.com/BerriAI/litellm) so you can use any model that is supported by it.
-  You can interact with the plugin using `/llm <query>` or by using a friendly trigger name (for instance "hey Dino, what is the borrowing in Rust?").
+* [llm](./lotb/plugins/llm.py): A unified plugin that provides LLM capabilities with two modes:
+
+  **Simple Mode (default):** A basic chat assistant that keeps conversation history per user. Uses [litellm](https://github.com/BerriAI/litellm) so you can use any supported model.
+  Interact with `/llm <query>` or use a friendly trigger name (for instance: "hey Dino, what is borrowing in Rust?").
+
+  **Assistant Mode:** Extends simple mode with MCP (Model Context Protocol) support, allowing the LLM to access tools and resources from [streamable http](https://modelcontextprotocol.io/docs/concepts/transports#streamable-http) servers.
+  The assistant can call tools, read resources, and provide rich contextual responses. Enable with `assistant_mode = true`.
+
   ```toml
   [plugins.llm]
   enabled = true # enable or disable the plugin
@@ -157,23 +162,24 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
   apikey = "your_api_key" # can be also set as env var: LOTB_PLUGINS_LLM_APIKEY
   friendlyname = "Dino" # optional: set a friendly name to trigger the plugin without /llm command
   maxhistory = 3 # optional: number of messages to keep in history, default 3
+  assistant_mode = false # optional: enable MCP tool/resource capabilities, default false
+
+  # Only used when assistant_mode = true
+  [[plugins.llm.mcpservers]]
+  name = "task"
+  url = "http://localhost:8125"
+  auth_value = "your-secret-token-here"
+
+  [[plugins.llm.mcpservers]]
+  name = "calendar"
+  url = "http://localhost:8126"
+  auth_value = "your-secret-token-here"
   ```
-* [assistant](./lotb/plugins/assistant.py): A plugin that will let you configure any MCP (Model Context Protocol) [streamable http](https://modelcontextprotocol.io/docs/concepts/transports#streamable-http) server
-  and let the model answer to your questions using those servers. You can ask the llm to use tools and resources that are available in the MCP server.
-  It also keep a small history of the conversation per user to allow seamless interaction with the model and mcp servers.
-  You can interact with the plugin using `/assistant <query>` or by using a friendly trigger name (for instance "hey Dino, check my calendar").
-  ```toml
-  [plugins.assistant]
-  enabled = true # enable or disable the plugin
-  model = "gpt-4.1-nano"
-  apikey = "your_api_key" # can be also set as env var: LOTB_PLUGINS_ASSISTANT_APIKEY
-  friendlyname = "Dino" # optional: set a friendly name to trigger the plugin without /assistant command
-  maxhistory = 3 # optional: number of messages to keep in history, default 3
-  mcpservers = [
-    {name = "task", url = "http://localhost:8125", auth_value = "your-secret-token-here"},
-    {name = "calendar", url = "http://localhost:8126", auth_value = "your-secret-token-here"},
-  ]
-  ```
+
+  When in assistant mode, additional commands are available:
+  - `/llm tools` - show available MCP tools and resources
+  - `/llm status` - show plugin status and configuration
+  - `/llm help` - show help message
 
 
 ### How to add a plugin? What helper methods are available?
