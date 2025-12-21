@@ -574,3 +574,129 @@ async def test_history_rotation(simple_plugin, mock_update):
   retrieved = history.get_conversation_history(user_id, chat_id)
   assert len(retrieved) == 3
   assert "message2" in retrieved[0]["content"]
+
+
+@pytest.mark.asyncio
+async def test_tool_handler_read_resource_content_types(assistant_plugin):
+  handler = assistant_plugin.handler.tool_handler
+  session = MagicMock()
+  server_cfg = {"name": "juve_store", "url": "http://juventus.com", "auth_value": "finoallafine"}
+
+  mock_result = MagicMock()
+  mock_content = MagicMock()
+  mock_content.text = "Forza Juve"
+  del mock_content.blob
+  mock_result.contents = [mock_content]
+  session.read_resource = AsyncMock(return_value=mock_result)
+
+  with patch("lotb.plugins._llm.mcp_manager.MCPSessionManager.session_context") as mock_ctx:
+    mock_ctx.return_value.__aenter__.return_value = session
+
+    assistant_plugin.handler.mcp.resource_to_server_map = {"juve://stadium": server_cfg}
+
+    mock_ctx.return_value.__aenter__.return_value = session
+
+    res = await handler.read_resource("juve://stadium")
+    assert res == "Forza Juve"
+
+    mock_content_blob = MagicMock()
+    mock_content_blob.blob = "trophy_image_blob"
+    del mock_content_blob.text
+    mock_result.contents = [mock_content_blob, mock_content]
+    res = await handler.read_resource("juve://stadium")
+    assert res == "Forza Juve"
+
+    mock_content_other = MagicMock()
+    del mock_content_other.text
+    del mock_content_other.blob
+    mock_content_other.__str__.return_value = "scudetto"
+    mock_result.contents = [mock_content_other]
+    res = await handler.read_resource("juve://stadium")
+    assert res == "scudetto"
+
+
+@pytest.mark.asyncio
+async def test_tool_handler_call_tool_content_types(assistant_plugin):
+  handler = assistant_plugin.handler.tool_handler
+  session = MagicMock()
+  server_cfg = {"name": "allianz_stadium", "url": "http://test", "auth_value": "token"}
+  assistant_plugin.handler.mcp.tool_to_server_map = {"buy_ticket": server_cfg}
+
+  with patch("lotb.plugins._llm.mcp_manager.MCPSessionManager.session_context") as mock_ctx:
+    mock_ctx.return_value.__aenter__.return_value = session
+
+    mock_result = MagicMock()
+    mock_item = MagicMock()
+    mock_item.text = "Ticket purchased"
+    mock_result.content = [mock_item]
+    session.call_tool = AsyncMock(return_value=mock_result)
+
+    res = await handler.call_tool("buy_ticket", {})
+    assert res == "Ticket purchased"
+
+    mock_result.content = MagicMock()
+    mock_result.content.text = "Season pass"
+    session.call_tool = AsyncMock(return_value=mock_result)
+
+    res = await handler.call_tool("buy_ticket", {})
+    assert res == "Season pass"
+
+    session.call_tool = AsyncMock(return_value="Sold out")
+    res = await handler.call_tool("buy_ticket", {})
+    assert res == "Sold out"
+
+
+@pytest.mark.asyncio
+async def test_tool_handler_create_resource_tools_naming(assistant_plugin):
+  handler = assistant_plugin.handler.tool_handler
+  resources = [
+    {"uri": "juve://history", "name": "History.txt"},
+    {"uri": "juve://players", "name": "Del-Piero"},
+  ]
+
+  tools = await handler.create_resource_tools(resources)
+  assert len(tools) == 2
+  assert tools[0]["function"]["name"] == "read_resource_History_txt"
+  assert tools[1]["function"]["name"] == "read_resource_Del_Piero"
+
+
+@pytest.mark.asyncio
+async def test_mcp_manager_list_methods(assistant_plugin):
+  manager = assistant_plugin.handler.mcp
+  session = MagicMock()
+  server_cfg = {"name": "continassa", "url": "http://test", "auth_value": "token"}
+
+  mock_response = MagicMock()
+  mock_res = MagicMock()
+  mock_res.uri = "juve://training_center"
+  mock_res.name = "Training Schedule"
+  mock_res.description = "Daily training"
+  mock_res.mimeType = "text/plain"
+  mock_response.resources = [mock_res]
+  session.list_resources = AsyncMock(return_value=mock_response)
+
+  with patch("lotb.plugins._llm.mcp_manager.MCPSessionManager.session_context") as mock_ctx:
+    mock_ctx.return_value.__aenter__.return_value = session
+
+    resources = await manager.list_resources(server_cfg)
+    assert len(resources) == 1
+    assert resources[0]["uri"] == "juve://training_center"
+
+
+@pytest.mark.asyncio
+async def test_simple_llm_handler_process_query_error(simple_plugin, mock_update, mock_context):
+  with (
+    patch("lotb.common.plugin_class.PluginBase.llm_completion", new=AsyncMock(side_effect=Exception("Referee Error"))),
+    patch("lotb.common.plugin_class.PluginBase.send_typing_action", new=AsyncMock()),
+  ):
+    await simple_plugin.handler.process_query(mock_update, mock_context, "query")
+    mock_update.message.reply_text.assert_called()
+    assert "LLM error: Referee Error" in mock_update.message.reply_text.call_args[0][0]
+
+
+@pytest.mark.asyncio
+async def test_assistant_handler_process_query_error(assistant_plugin, mock_update, mock_context):
+  with patch.object(assistant_plugin.handler, "_ensure_tools_loaded", side_effect=Exception("VAR Check Failed")):
+    await assistant_plugin.handler.process_query(mock_update, mock_context, "query")
+    mock_update.message.reply_text.assert_called()
+    assert "something went wrong" in mock_update.message.reply_text.call_args[0][0]
