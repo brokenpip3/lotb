@@ -27,7 +27,7 @@ def mock_assistant_config():
       "model": "openMai",
       "apikey": "yes",
       "friendlyname": "Dino",
-      "assistant_mode": True,
+      "assistant": True,
       "mcpservers": [
         {"name": "free-money-mcp-server", "url": "http://test", "auth_value": "my-incredible-auth"},
         {"name": "mcp-server-avengers", "url": "http://test2", "auth_value": "my-incredible-auth"},
@@ -155,7 +155,7 @@ async def test_simple_message_history_rotation(mock_update, mock_context, simple
 
 @pytest.mark.asyncio
 async def test_trigger_with_hey(mock_update, mock_context, simple_plugin):
-  mock_update.message.text = "hey Dino, what's the weather?"
+  mock_update.message.text = "Dino, what's the weather?"
   mock_response = MagicMock()
   mock_response.choices = [MagicMock()]
   mock_response.choices[0].message.content = "It's sunny!"
@@ -209,9 +209,9 @@ async def test_trigger_case_insensitive(mock_update, mock_context, simple_plugin
 
 @pytest.mark.asyncio
 async def test_trigger_with_no_query(mock_update, mock_context, simple_plugin):
-  mock_update.message.text = "hey Dino!"
+  mock_update.message.text = "Dino!"
   await simple_plugin.execute(mock_update, mock_context)
-  mock_update.message.reply_text.assert_called_once_with("yes? 🦕")
+  mock_update.message.reply_text.assert_called_once_with("yes?")
 
 
 @pytest.mark.asyncio
@@ -258,7 +258,7 @@ async def test_trigger_disabled(mock_update, mock_context):
   plugin.set_config(config)
   plugin.initialize()
 
-  mock_update.message.text = "hey Dino, hello"
+  mock_update.message.text = "Dino, hello"
   mock_response = MagicMock()
   mock_response.choices = [MagicMock()]
   mock_response.choices[0].message.content = "Hi!"
@@ -524,7 +524,7 @@ async def test_config_validation_warnings(caplog):
 async def test_config_assistant_mode_no_servers_warning(caplog):
   config = MagicMock()
   config.get.side_effect = lambda key, default=None: {
-    "plugins.llm": {"model": "gpt-4", "apikey": "test", "assistant_mode": True, "mcpservers": []},
+    "plugins.llm": {"model": "gpt-4", "apikey": "test", "assistant": True, "mcpservers": []},
     "core.database": ":memory:",
   }.get(key, default)
 

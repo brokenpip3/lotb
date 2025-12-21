@@ -9,7 +9,7 @@ class LLMConfig:
     self.apikey = plugin_cfg.get("apikey")
     self.model = plugin_cfg.get("model")
     self.max_history = plugin_cfg.get("maxhistory", 3)
-    self.assistant_mode = plugin_cfg.get("assistant_mode", False)
+    self.assistant_mode = plugin_cfg.get("assistant", False)
     self.friendly_name = plugin_cfg.get("friendlyname")
     self.system_prompt = plugin_cfg.get("system_prompt")
     self.mcp_servers = plugin_cfg.get("mcpservers", [])
@@ -24,7 +24,7 @@ class LLMConfig:
 
     if self.assistant_mode:
       if not self.mcp_servers:
-        warnings.append("Assistant mode enabled but no MCP servers configured")
+        warnings.append("no mcp servers configured")
       else:
         for server in self.mcp_servers:
           if not server.get("name"):

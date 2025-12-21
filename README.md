@@ -150,10 +150,10 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
 * [llm](./lotb/plugins/llm.py): A unified plugin that provides LLM capabilities with two modes:
 
   **Simple Mode (default):** A basic chat assistant that keeps conversation history per user. Uses [litellm](https://github.com/BerriAI/litellm) so you can use any supported model.
-  Interact with `/llm <query>` or use a friendly trigger name (for instance: "hey Dino, what is borrowing in Rust?").
+  Interact with `/llm <query>` or use a friendly trigger name (for instance: "Dino, what is borrowing in Rust?").
 
   **Assistant Mode:** Extends simple mode with MCP (Model Context Protocol) support, allowing the LLM to access tools and resources from [streamable http](https://modelcontextprotocol.io/docs/concepts/transports#streamable-http) servers.
-  The assistant can call tools, read resources, and provide rich contextual responses. Enable with `assistant_mode = true`.
+  The assistant can call tools, read resources, and provide rich contextual responses. Enable with `assistant = true`.
 
   ```toml
   [plugins.llm]
@@ -162,9 +162,9 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
   apikey = "your_api_key" # can be also set as env var: LOTB_PLUGINS_LLM_APIKEY
   friendlyname = "Dino" # optional: set a friendly name to trigger the plugin without /llm command
   maxhistory = 3 # optional: number of messages to keep in history, default 3
-  assistant_mode = false # optional: enable MCP tool/resource capabilities, default false
+  assistant = false # optional: enable MCP tool/resource capabilities, default false
 
-  # Only used when assistant_mode = true
+  # Only used when assistant = true
   [[plugins.llm.mcpservers]]
   name = "task"
   url = "http://localhost:8125"

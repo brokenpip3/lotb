@@ -40,20 +40,23 @@ class AssistantHandler:
     self.history.create_table()
 
     if self.config.friendly_name:
-      trigger_pattern = rf"(?i)\b(?:hey\s+)?{re.escape(self.config.friendly_name)}\b[\s,:!?]*"
+      trigger_pattern = rf"(?i)^\b{re.escape(self.config.friendly_name)}\b[\s,:!?]*"
       self.pattern_actions = {trigger_pattern: self.handle_trigger}
+      self.plugin.pattern_actions.update(self.pattern_actions)
       self.plugin.log_info(f"Assistant trigger enabled with name: {self.config.friendly_name}")
 
   async def handle_trigger(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.message or not update.message.text:
       return
 
-    if self.config.friendly_name:
-      trigger_pattern = rf"(?i)\b(?:hey\s+)?{re.escape(self.config.friendly_name)}\b[\s,:!?]*"
-      text = re.sub(trigger_pattern, "", update.message.text, count=1).strip()
+    if not self.config.friendly_name:
+      return
 
-      if not text:
-        await self.plugin.reply_message(update, context, "yes? 🦕")
+    trigger_pattern = rf"(?i)^\b{re.escape(self.config.friendly_name)}\b[\s,:!?]*"
+    text = re.sub(trigger_pattern, "", update.message.text, count=1).strip()
+
+    if not text:
+      await self.plugin.reply_message(update, context, "yes?")
       return
 
     await self.process_query(update, context, text)
