@@ -2,25 +2,32 @@
 
 [Full report](https://htmlpreview.github.io/?https://github.com/brokenpip3/lotb/blob/python-coverage-comment-action-data/htmlcov/index.html)
 
-| Name                               |    Stmts |     Miss |   Cover |   Missing |
-|----------------------------------- | -------: | -------: | ------: | --------: |
-| lotb/common/config.py              |       33 |        0 |    100% |           |
-| lotb/common/plugin\_class.py       |      149 |        0 |    100% |           |
-| lotb/common/version.py             |        2 |        2 |      0% |       1-3 |
-| lotb/lotb.py                       |      169 |       16 |     91% |58-59, 66-67, 84-86, 90-92, 96-98, 193-194, 224 |
-| lotb/plugins/assistant.py          |      418 |       76 |     82% |46, 59-62, 173-178, 182-200, 204-217, 223-233, 256-260, 266-269, 279-287, 293-298, 334-340, 351, 354-361, 441-444, 552 |
-| lotb/plugins/image.py              |      179 |       13 |     93% |36-39, 98-99, 115-116, 143-146, 208-209 |
-| lotb/plugins/llm.py                |       89 |        8 |     91% |60-61, 65, 81, 165, 176-178 |
-| lotb/plugins/memo.py               |       83 |       14 |     83% |63, 85-86, 89-90, 125-128, 134-135, 143-144, 156 |
-| lotb/plugins/notes.py              |       64 |       12 |     81% |30-31, 40-41, 47-48, 60-61, 81-82, 87, 104 |
-| lotb/plugins/prometheus\_alerts.py |       95 |       16 |     83% |23, 40-42, 81-82, 88-89, 110, 114-119, 141-142 |
-| lotb/plugins/quote.py              |       77 |        2 |     97% |   118-120 |
-| lotb/plugins/readwise.py           |       50 |        4 |     92% |     55-59 |
-| lotb/plugins/remindme.py           |       92 |       12 |     87% |40-43, 62-63, 69-76, 129-130, 163-164, 173 |
-| lotb/plugins/rssfeed.py            |       60 |       10 |     83% |22, 24, 30, 71-73, 76-81, 87 |
-| lotb/plugins/socialfix.py          |       37 |        0 |    100% |           |
-| lotb/plugins/welcome.py            |       17 |        0 |    100% |           |
-|                          **TOTAL** | **1614** |  **185** | **89%** |           |
+| Name                                |    Stmts |     Miss |   Cover |   Missing |
+|------------------------------------ | -------: | -------: | ------: | --------: |
+| lotb/common/config.py               |       33 |        0 |    100% |           |
+| lotb/common/plugin\_class.py        |      149 |        2 |     99% |     65-66 |
+| lotb/common/version.py              |        2 |        2 |      0% |       1-3 |
+| lotb/lotb.py                        |      169 |       16 |     91% |58-59, 66-67, 84-86, 90-92, 96-98, 193-194, 224 |
+| lotb/plugins/\_llm/\_\_init\_\_.py  |        5 |        0 |    100% |           |
+| lotb/plugins/\_llm/assistant.py     |      194 |       33 |     83% |49-62, 107-113, 124, 127-134, 148, 159, 162, 275, 278, 281-282, 286-287 |
+| lotb/plugins/\_llm/config.py        |       33 |        2 |     94% |    31, 33 |
+| lotb/plugins/\_llm/history.py       |       28 |        3 |     89% |34, 67, 71 |
+| lotb/plugins/\_llm/mcp\_manager.py  |       97 |       13 |     87% |28, 69-74, 119-123, 129-132 |
+| lotb/plugins/\_llm/prompts.py       |       11 |        0 |    100% |           |
+| lotb/plugins/\_llm/simple.py        |       71 |       11 |     85% |35, 38, 51-52, 82, 93-95, 98-100 |
+| lotb/plugins/\_llm/tool\_handler.py |      102 |       12 |     88% |39, 60, 64-66, 71-74, 80-82, 111, 143 |
+| lotb/plugins/image.py               |      179 |       13 |     93% |36-39, 98-99, 115-116, 143-146, 208-209 |
+| lotb/plugins/llm.py                 |       33 |        5 |     85% |24-25, 47-49 |
+| lotb/plugins/memo.py                |       83 |       14 |     83% |63, 85-86, 89-90, 125-128, 134-135, 143-144, 156 |
+| lotb/plugins/notes.py               |       64 |       12 |     81% |30-31, 40-41, 47-48, 60-61, 81-82, 87, 104 |
+| lotb/plugins/prometheus\_alerts.py  |       95 |       16 |     83% |23, 40-42, 81-82, 88-89, 110, 114-119, 141-142 |
+| lotb/plugins/quote.py               |       77 |        2 |     97% |   118-120 |
+| lotb/plugins/readwise.py            |       50 |        4 |     92% |     55-59 |
+| lotb/plugins/remindme.py            |       92 |       12 |     87% |40-43, 62-63, 69-76, 129-130, 163-164, 173 |
+| lotb/plugins/rssfeed.py             |       60 |       10 |     83% |22, 24, 30, 71-73, 76-81, 87 |
+| lotb/plugins/socialfix.py           |       37 |        0 |    100% |           |
+| lotb/plugins/welcome.py             |       17 |        0 |    100% |           |
+|                           **TOTAL** | **1681** |  **182** | **89%** |           |
 
 3 empty files skipped.
 
