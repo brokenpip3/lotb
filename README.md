@@ -27,7 +27,7 @@
 | lotb/plugins/rssfeed.py             |       60 |       10 |     83% |22, 24, 30, 71-73, 76-81, 87 |
 | lotb/plugins/socialfix.py           |       37 |        0 |    100% |           |
 | lotb/plugins/welcome.py             |       17 |        0 |    100% |           |
-|                           **TOTAL** | **1681** |  **182** | **89%** |           |
+| **TOTAL**                           | **1681** |  **182** | **89%** |           |
 
 3 empty files skipped.
 
