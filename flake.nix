@@ -66,7 +66,15 @@
           tag = lotbVersion;
           created = "now";
           copyToRoot = self.packages.${system}.default;
+          runAsRoot = ''
+            #!${pkgs.runtimeShell}
+            ${pkgs.dockerTools.shadowSetup}
+            groupadd -r lotb
+            useradd -r -g lotb lotb
+          '';
           config = {
+            User = "lotb";
+            Expose = [];
             Labels = {
               "maintainer" = "brokenpip3";
               "description" = "Docker image for ${lotbName}";
