@@ -30,12 +30,12 @@ jobs:
         extra-conf: |
           experimental-features = nix-command flakes
     - name: Check out code
-      uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
     - name: Test ${{ matrix.test }}
       run: nix develop . --command just ${{ matrix.test }}
 
     - name: Coverage comment
       if: matrix.test == 'coverage'
-      uses: py-cov-action/python-coverage-comment-action@7188638f871f721a365d644f505d1ff3df20d683 # v3.40
+      uses: py-cov-action/python-coverage-comment-action@63f52f4fbbffada6e8dee8ec432de7e01df9ba79 # v3.41
       with:
         GITHUB_TOKEN: ${{ github.token }}
