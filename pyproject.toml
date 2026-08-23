@@ -10,12 +10,12 @@ readme = "README.md"
 lotb = "lotb.lotb:main"
 
 [tool.poetry.dependencies]
-python = "^3.13"
-python-telegram-bot = {extras = ["job-queue"], version = "^22.5"}
+python = ">=3.13,<3.14"
+python-telegram-bot = {extras = ["job-queue"], version = "^22.7"}
 feedparser = "^6.0.12"
 python-dateutil = "^2.9.0.post0"
 typing-extensions = "^4.15.0"
-litellm = "1.80.0"
+litellm = "^1.86.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.2"
