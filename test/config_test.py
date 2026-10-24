@@ -6,6 +6,13 @@ import pytest
 from lotb.common.config import Config
 
 
+@pytest.fixture(autouse=True)
+def clean_lotb_env(monkeypatch):
+  for key in list(os.environ):
+    if key.startswith("LOTB_"):
+      monkeypatch.delenv(key)
+
+
 @pytest.fixture
 def mock_toml_file(tmp_path):
   toml_content = """

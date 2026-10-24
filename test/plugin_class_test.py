@@ -114,6 +114,7 @@ def test_plugin_base_execute_query(mock_connect, mock_plugin):
 async def test_plugin_base_reply_message(mock_plugin):
   update = MagicMock()
   update.message = MagicMock()
+  update.effective_message = update.message
   update.message.reply_text = AsyncMock()
   context = MagicMock()
   message = "this is a test message"

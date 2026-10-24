@@ -120,8 +120,8 @@ class PluginBase:
       self.connection.commit()
 
   async def reply_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE, message: str):
-    if update.message:
-      await update.message.reply_text(message)
+    if update.effective_message:
+      await update.effective_message.reply_text(message)
 
   async def reply_quote_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE, message: str):
     if update.message:

@@ -35,8 +35,7 @@ fmt:
 
 # run the app locally
 local:
-    nix build .#lotb
-    ./result/bin/lotb --config config.toml
+    nix develop . --command python -m lotb.lotb --config config.toml
 
 # run all tests
 [parallel]

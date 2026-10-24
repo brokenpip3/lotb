@@ -28,5 +28,10 @@ book = "/path/to/book"
 series = "/path/to/series"
 film = "/path/to/film"
 
+[plugins.tickets18]
+enabled = false
+hour = 8
+timezone = "Europe/Rome"
+
 [plugins.yourplugin]
 enabled = true

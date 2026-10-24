@@ -9,6 +9,7 @@ from lotb.common.plugin_class import PluginBase
 from lotb.lotb import disable_plugin
 from lotb.lotb import enable_plugin
 from lotb.lotb import handle_command
+from lotb.lotb import handle_message
 from lotb.lotb import handlers
 from lotb.lotb import help_command
 from lotb.lotb import list_plugins
@@ -83,6 +84,26 @@ async def test_handle_command_unauthorized_user(mock_load_plugins, mock_plugins,
   mock_plugins["test"] = mock_plugin
   await handle_command(mock_update, mock_context)
   mock_update.message.reply_text.assert_called_once_with("you are not authorized to use this command.")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("matching_index", [0, 1])
+async def test_handle_message_pattern_match_stops_processing(matching_index, mock_update, mock_context):
+  mock_plugins = {}
+  for index in range(3):
+    plugin = MagicMock(spec=PluginBase)
+    plugin.pattern_actions = {}
+    plugin.intercept_patterns = AsyncMock(return_value=index == matching_index)
+    mock_plugins[str(index)] = plugin
+
+  with patch("lotb.lotb.plugins", mock_plugins):
+    await handle_message(mock_update, mock_context)
+
+  for index, plugin in enumerate(mock_plugins.values()):
+    if index <= matching_index:
+      plugin.intercept_patterns.assert_awaited_once_with(mock_update, mock_context, plugin.pattern_actions)
+    else:
+      plugin.intercept_patterns.assert_not_awaited()
 
 
 @pytest.mark.asyncio
