@@ -8,11 +8,7 @@ updates:
       actions:
         patterns:
           - "*"
-  - package-ecosystem: "pip"
+  - package-ecosystem: "nix"
     directory: "/"
     schedule:
       interval: "weekly"
-    groups:
-      python:
-        patterns:
-          - "*"
