@@ -7,7 +7,7 @@
 | lotb/common/config.py               |       33 |        0 |    100% |           |
 | lotb/common/plugin\_class.py        |      149 |        2 |     99% |     65-66 |
 | lotb/common/version.py              |        2 |        2 |      0% |       1-3 |
-| lotb/lotb.py                        |      169 |       16 |     91% |58-59, 66-67, 84-86, 90-92, 96-98, 193-194, 224 |
+| lotb/lotb.py                        |      170 |       13 |     92% |58-59, 67-68, 85-87, 97-99, 194-195, 225 |
 | lotb/plugins/\_llm/\_\_init\_\_.py  |        5 |        0 |    100% |           |
 | lotb/plugins/\_llm/assistant.py     |      194 |       33 |     83% |49-62, 107-113, 124, 127-134, 148, 159, 162, 275, 278, 281-282, 286-287 |
 | lotb/plugins/\_llm/config.py        |       33 |        2 |     94% |    31, 33 |
@@ -26,8 +26,9 @@
 | lotb/plugins/remindme.py            |       92 |       12 |     87% |40-43, 62-63, 69-76, 129-130, 163-164, 173 |
 | lotb/plugins/rssfeed.py             |       60 |       10 |     83% |22, 24, 30, 71-73, 76-81, 87 |
 | lotb/plugins/socialfix.py           |       37 |        0 |    100% |           |
+| lotb/plugins/tickets18.py           |      256 |        9 |     96% |74, 199, 218, 224-226, 262, 267, 306 |
 | lotb/plugins/welcome.py             |       17 |        0 |    100% |           |
-| **TOTAL**                           | **1681** |  **182** | **89%** |           |
+| **TOTAL**                           | **1938** |  **188** | **90%** |           |
 
 3 empty files skipped.
 
