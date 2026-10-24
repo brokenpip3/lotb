@@ -60,8 +60,9 @@ def load_plugins(directory, config=None):
 
 
 async def handle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-  if update.message and update.message.text:
-    command = update.message.text.split()[0][1:]
+  message = update.effective_message
+  if message and message.text:
+    command = message.text.split()[0][1:]
   else:
     logger.warning("Received a command update with no message text.")
     return
