@@ -214,6 +214,7 @@ Commands:
 • /llm tools - show available mcp tools and resources
 • /llm status - show plugin status
 • /llm help - show this help
+• /llm reset - clear your conversation history in this chat
 """
     await self.plugin.reply_message(update, context, help_text)
 
@@ -237,6 +238,12 @@ Servers:
     await self.plugin.reply_message(update, context, status)
 
   async def process_query(self, update: Update, context: ContextTypes.DEFAULT_TYPE, text: str):
+    if text.lower() == "reset":
+      if update.effective_user and update.effective_chat:
+        self.history.clear_history(update.effective_user.id, update.effective_chat.id)
+        await self.plugin.reply_message(update, context, "Conversation history cleared.")
+      return
+
     is_valid, error_msg = self.plugin.security_validator.validate_user_input(text)
     if not is_valid:
       self.plugin.log_warning(f"user input blocked: {error_msg}")
@@ -258,7 +265,10 @@ Servers:
         tools = await self._ensure_tools_loaded()
         self.plugin.log_info(f"using {len(tools)} tools for this request")
         history = self.history.get_conversation_history(user_id, chat_id)
-        messages = [*history, {"role": "user", "content": text}]
+        quoted_text = ""
+        if update.message and update.message.reply_to_message and update.message.reply_to_message.text:
+          quoted_text = f"\n\nQuoted message:\n{update.message.reply_to_message.text}"
+        messages = [*history, {"role": "user", "content": f"{text}{quoted_text}"}]
         await self.plugin.send_typing_action(update, context)
         response = await self._handle_llm_conversation(messages, tools)
         self.plugin.log_info(f"responding with: '{response[:100]}...'")

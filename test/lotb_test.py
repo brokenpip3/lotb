@@ -107,6 +107,28 @@ async def test_handle_message_pattern_match_stops_processing(matching_index, moc
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("group_allowed,user_allowed", [(False, True), (True, False), (False, False)])
+async def test_handle_message_skips_unauthorized_plugins(group_allowed, user_allowed, mock_update, mock_context):
+  blocked = MagicMock(spec=PluginBase)
+  blocked.pattern_actions = {}
+  blocked.group_is_authorized.return_value = group_allowed
+  blocked.is_authorized.return_value = user_allowed
+  blocked.intercept_patterns = AsyncMock(return_value=True)
+  allowed = MagicMock(spec=PluginBase)
+  allowed.pattern_actions = {}
+  allowed.group_is_authorized.return_value = True
+  allowed.is_authorized.return_value = True
+  allowed.intercept_patterns = AsyncMock(return_value=True)
+
+  with patch("lotb.lotb.plugins", {"blocked": blocked, "allowed": allowed}):
+    await handle_message(mock_update, mock_context)
+
+  blocked.intercept_patterns.assert_not_awaited()
+  allowed.intercept_patterns.assert_awaited_once()
+  mock_update.message.reply_text.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 @patch("lotb.lotb.plugins", new_callable=dict)
 @patch("lotb.lotb.load_plugins")
 async def test_help_command(mock_load_plugins, mock_plugins, mock_update, mock_context):

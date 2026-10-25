@@ -89,6 +89,8 @@ async def handle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
   for plugin in plugins.values():
+    if not plugin.group_is_authorized(update) or not plugin.is_authorized(update):
+      continue
     if await plugin.intercept_patterns(update, context, plugin.pattern_actions):
       return
 

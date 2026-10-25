@@ -700,3 +700,49 @@ async def test_assistant_handler_process_query_error(assistant_plugin, mock_upda
     await assistant_plugin.handler.process_query(mock_update, mock_context, "query")
     mock_update.message.reply_text.assert_called()
     assert "something went wrong" in mock_update.message.reply_text.call_args[0][0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("plugin_fixture", ["simple_plugin", "assistant_plugin"])
+@pytest.mark.parametrize("message", ["/llm reset", "Dino, reset"])
+async def test_reset_history(plugin_fixture, message, request, mock_update, mock_context):
+  plugin = request.getfixturevalue(plugin_fixture)
+  history = plugin.handler.history
+  user_id = mock_update.effective_user.id
+  chat_id = mock_update.effective_chat.id
+  history.save_message(user_id, chat_id, "user", "forget this")
+  history.save_message(user_id + 1, chat_id, "user", "other user")
+  history.save_message(user_id, chat_id + 1, "user", "other chat")
+  mock_update.message.text = message
+
+  with (
+    patch.object(plugin, "llm_completion", new_callable=AsyncMock) as completion,
+    patch("lotb.plugins._llm.assistant.AssistantHandler._ensure_tools_loaded", new_callable=AsyncMock) as load_tools,
+  ):
+    await plugin.execute(mock_update, mock_context)
+
+  assert history.get_conversation_history(user_id, chat_id) == []
+  assert history.get_conversation_history(user_id + 1, chat_id)[0]["content"] == "other user"
+  assert history.get_conversation_history(user_id, chat_id + 1)[0]["content"] == "other chat"
+  completion.assert_not_awaited()
+  load_tools.assert_not_awaited()
+  mock_update.message.reply_text.assert_awaited_once_with("Conversation history cleared.")
+
+
+@pytest.mark.asyncio
+async def test_assistant_quoted_message(assistant_plugin, mock_update, mock_context):
+  mock_update.message.text = "/llm explain this"
+  mock_update.message.reply_to_message = MagicMock()
+  mock_update.message.reply_to_message.text = "The quoted message"
+  with (
+    patch.object(assistant_plugin.handler, "_ensure_tools_loaded", new=AsyncMock(return_value=[])),
+    patch.object(
+      assistant_plugin.handler, "_handle_llm_conversation", new=AsyncMock(return_value="Explanation")
+    ) as conversation,
+    patch.object(assistant_plugin, "send_typing_action", new_callable=AsyncMock),
+  ):
+    await assistant_plugin.execute(mock_update, mock_context)
+
+  conversation.assert_awaited_once_with(
+    [{"role": "user", "content": "explain this\n\nQuoted message:\nThe quoted message"}], []
+  )

@@ -55,6 +55,11 @@ class SimpleLLMHandler:
     chat_id = update.effective_chat.id
 
     try:
+      if query.lower() == "reset":
+        self.history.clear_history(user_id, chat_id)
+        await self.plugin.reply_message(update, context, "Conversation history cleared.")
+        return
+
       quoted_text = ""
       if update.message and update.message.reply_to_message and update.message.reply_to_message.text:
         quoted_text = f"\n\nQuoted message:\n{update.message.reply_to_message.text}"
