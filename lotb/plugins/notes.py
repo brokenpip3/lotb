@@ -2,6 +2,8 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from lotb.common.plugin_class import PluginBase
+from lotb.common.tools import plugin_tool
+from lotb.common.tools import ToolResult
 
 
 class Plugin(PluginBase):
@@ -23,56 +25,64 @@ class Plugin(PluginBase):
         """)
     self.log_info("Notes plugin initialized.")
 
-  async def add_note(self, update: Update, context: ContextTypes.DEFAULT_TYPE, note: str):
-    if update.effective_user:
-      user_id = update.effective_user.id
-    else:
-      await self.reply_quote_message(update, context, "User information is missing.")
-      return
-    self.execute_query("INSERT INTO notes (user_id, note) VALUES (?, ?)", (user_id, note))
-    await self.reply_quote_message(update, context, "Note added successfully.")
-    self.log_info(f"Note added for user {user_id}: {note}")
+  def get_tools(self):
+    return [
+      plugin_tool(
+        "lotb_notes_add",
+        "Save a note for the requesting user",
+        {"text": {"type": "string", "minLength": 1}},
+        self.add_action,
+      ),
+      plugin_tool("lotb_notes_list", "List the requesting user's notes", {}, self.list_action),
+      plugin_tool(
+        "lotb_notes_delete",
+        "Delete one of the requesting user's notes",
+        {"note_id": {"type": "integer", "minimum": 1}},
+        self.delete_action,
+      ),
+    ]
 
-  async def view_notes(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user:
-      user_id = update.effective_user.id
-    else:
-      await self.reply_quote_message(update, context, "User information is missing.")
-      return
+  async def add_action(self, update, context, text: str) -> ToolResult:
+    if not update.effective_user:
+      return ToolResult(False, {}, "User information is missing.")
+    self.execute_query("INSERT INTO notes (user_id, note) VALUES (?, ?)", (update.effective_user.id, text))
+    return ToolResult(True, {"message": "Note added successfully."})
 
-    if self.db_cursor:
-      self.db_cursor.execute("SELECT id, note FROM notes WHERE user_id = ?", (user_id,))
-      notes = self.db_cursor.fetchall()
-    else:
-      await self.reply_quote_message(update, context, "Database cursor is not available.")
-      return
-    if notes:
-      response = "Your notes:\n" + "\n".join([f"{note[0]}: {note[1]}" for note in notes])
-    else:
-      response = "You have no notes."
-    await self.reply_quote_message(update, context, response)
-    self.log_info(f"Notes viewed for user {user_id}")
+  async def list_action(self, update, context) -> ToolResult:
+    if not update.effective_user:
+      return ToolResult(False, {}, "User information is missing.")
+    if self.db_cursor is None:
+      return ToolResult(False, {}, "Database cursor is not available.")
+    self.db_cursor.execute("SELECT id, note FROM notes WHERE user_id = ?", (update.effective_user.id,))
+    notes = self.db_cursor.fetchall()
+    message = "Your notes:\n" + "\n".join(f"{row[0]}: {row[1]}" for row in notes) if notes else "You have no notes."
+    return ToolResult(True, {"notes": [{"id": row[0], "text": row[1]} for row in notes], "message": message})
 
-  async def delete_note(self, update: Update, context: ContextTypes.DEFAULT_TYPE, note_id: int):
-    if update.effective_user:
-      user_id = update.effective_user.id
-    else:
-      await self.reply_quote_message(update, context, "User information is missing.")
-      return
-
-    self.execute_query(
-      "DELETE FROM notes WHERE id = ? AND user_id = ?",
-      (note_id, user_id),
-    )
+  async def delete_action(self, update, context, note_id: int) -> ToolResult:
+    if not update.effective_user:
+      return ToolResult(False, {}, "User information is missing.")
+    self.execute_query("DELETE FROM notes WHERE id = ? AND user_id = ?", (note_id, update.effective_user.id))
     if self.db_cursor and self.db_cursor.rowcount > 0:
-      await self.reply_quote_message(update, context, "Note deleted successfully.")
-      self.log_info(f"Note with ID {note_id} deleted")
-    else:
-      await self.reply_quote_message(
-        update,
-        context,
-        "Note not found or you don't have permission to delete it.",
-      )
+      return ToolResult(True, {"message": "Note deleted successfully."})
+    return ToolResult(False, {}, "Note not found or you don't have permission to delete it.")
+
+  async def add_note(self, update, context, note: str):
+    result = await self.add_action(update, context, note)
+    await self.reply_quote_message(
+      update, context, result.data["message"] if result.ok else result.error or "Action failed"
+    )
+
+  async def view_notes(self, update, context):
+    result = await self.list_action(update, context)
+    await self.reply_quote_message(
+      update, context, result.data["message"] if result.ok else result.error or "Action failed"
+    )
+
+  async def delete_note(self, update, context, note_id: int):
+    result = await self.delete_action(update, context, note_id)
+    await self.reply_quote_message(
+      update, context, result.data["message"] if result.ok else result.error or "Action failed"
+    )
 
   async def execute(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message and update.message.text:
@@ -88,8 +98,8 @@ class Plugin(PluginBase):
 
     self.log_info(f"Received command: {main_command}, sub_command: {sub_command}, args: {args}")
 
-    if main_command.startswith("/"):
-      main_command = main_command[1:]
+    if main_command.startswith(("/", "!")):
+      main_command = main_command[1:].split("@", 1)[0]
 
     if main_command == "notes":
       if sub_command == "add" and args:

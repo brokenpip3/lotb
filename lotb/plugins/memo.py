@@ -6,6 +6,8 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from lotb.common.plugin_class import PluginBase
+from lotb.common.tools import plugin_tool
+from lotb.common.tools import ToolResult
 
 
 class Plugin(PluginBase):
@@ -107,19 +109,28 @@ class Plugin(PluginBase):
         return message[len(pattern) :].strip()
     return message.strip()
 
-  async def save_message(self, message: str, category: str, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Save a message to the appropriate category file."""
-    cat_config = self.categories[category]
+  def get_tools(self):
+    return [
+      plugin_tool(
+        "lotb_memo_save",
+        "Save text to a configured memo category",
+        {"text": {"type": "string", "minLength": 1}, "category": {"type": "string", "enum": list(self.categories)}},
+        self.save_action,
+      )
+    ]
 
+  async def save_action(self, update, context, text: str, category: str) -> ToolResult:
+    cat_config = self.categories[category]
     file_path = (
       self.get_daily_file_path(cat_config["file_path"]) if cat_config["daily_file"] else cat_config["file_path"]
     )
-
-    cleaned_message = self.clean_message(message, category)
+    cleaned_message = self.clean_message(text, category)
     self.append_to_file(file_path, cleaned_message, cat_config["prefix"])
+    return ToolResult(True, {"message": cat_config["success_message"]})
 
-    await self.reply_quote_message(update, context, cat_config["success_message"])
-    self.log_info(f"Saved message to {category}: {cleaned_message}")
+  async def save_message(self, message: str, category: str, update: Update, context: ContextTypes.DEFAULT_TYPE):
+    result = await self.save_action(update, context, message, category)
+    await self.reply_quote_message(update, context, result.data["message"])
 
   async def react_to_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE, category: str):
     if _message := update.message and update.message.text:

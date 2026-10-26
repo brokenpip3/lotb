@@ -35,6 +35,7 @@
             apscheduler
             feedparser
             litellm
+            jsonschema
             mcp
             python-dateutil
             python-telegram-bot

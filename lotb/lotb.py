@@ -12,6 +12,7 @@ from telegram.ext import ContextTypes
 from telegram.ext import filters
 from telegram.ext import MessageHandler
 
+from lotb.common.commands import parse_command
 from lotb.common.config import Config
 
 # see: https://github.com/encode/httpx/discussions/2765
@@ -25,6 +26,7 @@ logger = logging.getLogger("lotb")
 plugins = {}
 handlers = {}
 application = None
+config = None
 
 
 def load_plugins(directory, config=None):
@@ -57,14 +59,23 @@ def load_plugins(directory, config=None):
           logger.info(f"Loaded plugin: {module_name}")
         except Exception as e:
           logger.error(f"Failed to load plugin {module_name}: {e}")
+  for plugin in plugins.values():
+    plugin.set_plugins(plugins)
 
 
 async def handle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
   message = update.effective_message
-  if message and message.text:
-    command = message.text.split()[0][1:]
-  else:
+  parsed = parse_command(message.text or "") if message else None
+  if not parsed:
     logger.warning("Received a command update with no message text.")
+    return
+  command, context.args = parsed
+  builtins = {"help": help_command, "plugins": list_plugins, "disable": disable_plugin}
+  if command == "enable":
+    await enable_plugin(update, context, config)
+    return
+  if command in builtins:
+    await builtins[command](update, context)
     return
   if command in plugins:
     plugin = plugins[command]
@@ -88,13 +99,25 @@ async def handle_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 
 async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+  if (
+    update.message
+    and update.message.text
+    and update.message.text.startswith("!")
+    and parse_command(update.message.text)
+  ):
+    await handle_command(update, context)
+    return
   for plugin in plugins.values():
+    if not plugin.group_is_authorized(update) or not plugin.is_authorized(update):
+      continue
     if await plugin.intercept_patterns(update, context, plugin.pattern_actions):
       return
 
 
 async def handle_media(update: Update, context: ContextTypes.DEFAULT_TYPE):
   for plugin in plugins.values():
+    if not plugin.group_is_authorized(update) or not plugin.is_authorized(update):
+      continue
     if hasattr(plugin, "handle_media"):
       await plugin.handle_media(update, context)
 
@@ -119,6 +142,9 @@ async def enable_plugin(update: Update, context: ContextTypes.DEFAULT_TYPE, conf
         if hasattr(plugin_instance, "initialize"):
           plugin_instance.initialize()
         plugins[plugin_name] = plugin_instance
+        plugin_instance.set_plugins(plugins)
+        if application and application.job_queue:
+          plugin_instance.set_job_queue(application.job_queue)
         handler = CommandHandler(plugin_name, handle_command)
         handlers[plugin_name] = handler
         if application:
@@ -144,6 +170,10 @@ async def disable_plugin(update: Update, context: ContextTypes.DEFAULT_TYPE):
     plugin_name = context.args[0]
     if plugin_name in plugins:
       if application:
+        if application.job_queue:
+          for job in application.job_queue.jobs():
+            if getattr(job.callback, "__self__", None) is plugins[plugin_name]:
+              job.schedule_removal()
         application.remove_handler(handlers[plugin_name])
       del plugins[plugin_name]
       del handlers[plugin_name]
