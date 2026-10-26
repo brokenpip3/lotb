@@ -4,31 +4,33 @@
 
 | Name                                |    Stmts |     Miss |   Cover |   Missing |
 |------------------------------------ | -------: | -------: | ------: | --------: |
+| lotb/common/commands.py             |        9 |        0 |    100% |           |
 | lotb/common/config.py               |       33 |        0 |    100% |           |
-| lotb/common/plugin\_class.py        |      149 |        2 |     99% |     65-66 |
+| lotb/common/plugin\_class.py        |      157 |        2 |     99% |     69-70 |
+| lotb/common/tools.py                |       59 |        4 |     93% | 63, 95-97 |
 | lotb/common/version.py              |        2 |        2 |      0% |       1-3 |
-| lotb/lotb.py                        |      170 |       13 |     92% |58-59, 67-68, 85-87, 97-99, 194-195, 225 |
+| lotb/lotb.py                        |      196 |       14 |     93% |60-61, 70-71, 75-76, 118-122, 224-225, 255 |
 | lotb/plugins/\_llm/\_\_init\_\_.py  |        5 |        0 |    100% |           |
-| lotb/plugins/\_llm/assistant.py     |      194 |       33 |     83% |49-62, 107-113, 124, 127-134, 148, 159, 162, 275, 278, 281-282, 286-287 |
-| lotb/plugins/\_llm/config.py        |       33 |        2 |     94% |    31, 33 |
+| lotb/plugins/\_llm/assistant.py     |      239 |       28 |     88% |53, 56, 62-63, 116-122, 138, 141-148, 168, 181, 198, 242, 253, 342, 345-346, 350-351 |
+| lotb/plugins/\_llm/config.py        |       31 |        2 |     94% |    28, 30 |
 | lotb/plugins/\_llm/history.py       |       28 |        3 |     89% |34, 67, 71 |
 | lotb/plugins/\_llm/mcp\_manager.py  |       97 |       13 |     87% |28, 69-74, 119-123, 129-132 |
 | lotb/plugins/\_llm/prompts.py       |       11 |        0 |    100% |           |
-| lotb/plugins/\_llm/simple.py        |       71 |       11 |     85% |35, 38, 51-52, 82, 93-95, 98-100 |
+| lotb/plugins/\_llm/simple.py        |       75 |       11 |     85% |35, 38, 51-52, 87, 98-100, 103-105 |
 | lotb/plugins/\_llm/tool\_handler.py |      102 |       12 |     88% |39, 60, 64-66, 71-74, 80-82, 111, 143 |
-| lotb/plugins/image.py               |      179 |       13 |     93% |36-39, 98-99, 115-116, 143-146, 208-209 |
+| lotb/plugins/image.py               |      183 |       11 |     94% |38-41, 99-100, 136, 144, 160, 238-239 |
 | lotb/plugins/llm.py                 |       33 |        5 |     85% |24-25, 47-49 |
-| lotb/plugins/memo.py                |       83 |       14 |     83% |63, 85-86, 89-90, 125-128, 134-135, 143-144, 156 |
-| lotb/plugins/notes.py               |       64 |       12 |     81% |30-31, 40-41, 47-48, 60-61, 81-82, 87, 104 |
+| lotb/plugins/memo.py                |       89 |       10 |     89% |65, 136-139, 145-146, 154-155, 167 |
+| lotb/plugins/notes.py               |       65 |        8 |     88% |47, 53, 55, 63, 91-92, 97, 114 |
 | lotb/plugins/prometheus\_alerts.py  |       95 |       16 |     83% |23, 40-42, 81-82, 88-89, 110, 114-119, 141-142 |
-| lotb/plugins/quote.py               |       77 |        2 |     97% |   118-120 |
-| lotb/plugins/readwise.py            |       50 |        4 |     92% |     55-59 |
-| lotb/plugins/remindme.py            |       92 |       12 |     87% |40-43, 62-63, 69-76, 129-130, 163-164, 173 |
+| lotb/plugins/quote.py               |       84 |        3 |     96% |78, 139-141 |
+| lotb/plugins/readwise.py            |       54 |        4 |     93% |     69-73 |
+| lotb/plugins/remindme.py            |      106 |       10 |     91% |56-59, 81, 85, 87, 147-148, 184-185, 194 |
 | lotb/plugins/rssfeed.py             |       60 |       10 |     83% |22, 24, 30, 71-73, 76-81, 87 |
-| lotb/plugins/socialfix.py           |       37 |        0 |    100% |           |
-| lotb/plugins/tickets18.py           |      256 |        9 |     96% |74, 199, 218, 224-226, 262, 267, 306 |
-| lotb/plugins/welcome.py             |       17 |        0 |    100% |           |
-| **TOTAL**                           | **1938** |  **188** | **90%** |           |
+| lotb/plugins/socialfix.py           |       51 |        3 |     94% | 71, 78-79 |
+| lotb/plugins/tickets18.py           |      286 |       11 |     96% |76, 201, 238, 241-242, 244, 261, 276, 289, 314, 319 |
+| lotb/plugins/welcome.py             |       22 |        0 |    100% |           |
+| **TOTAL**                           | **2172** |  **182** | **92%** |           |
 
 3 empty files skipped.
 
