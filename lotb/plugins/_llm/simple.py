@@ -104,7 +104,7 @@ class SimpleLLMHandler:
         await update.effective_chat.send_message("Message is unavailable")
       return
 
-    query = update.message.text.replace("/llm", "", 1).strip()
+    query = self.plugin.command_arguments(update).strip()
 
     if not query:
       await self.plugin.reply_message(update, context, "Please provide a query")

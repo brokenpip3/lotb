@@ -464,7 +464,7 @@ async def test_assistant_llm_conversation_max_iterations(assistant_plugin):
 
 @pytest.mark.asyncio
 async def test_assistant_show_status(assistant_plugin, mock_update, mock_context):
-  assistant_plugin.handler.tools = [1, 2, 3]
+  assistant_plugin.handler.tools = [{"type": "function", "function": {"name": f"tool{i}"}} for i in range(3)]
   assistant_plugin.handler.resources = [1]
   assistant_plugin.handler.mcp.tool_to_server_map = {"tool1": "server1"}
 
@@ -531,7 +531,7 @@ async def test_config_assistant_mode_no_servers_warning(caplog):
   plugin = Plugin()
   plugin.set_config(config)
   plugin.initialize()
-  assert "no mcp servers" in caplog.text.lower()
+  assert "no mcp servers" not in caplog.text.lower()
 
 
 @pytest.mark.asyncio
@@ -744,5 +744,201 @@ async def test_assistant_quoted_message(assistant_plugin, mock_update, mock_cont
     await assistant_plugin.execute(mock_update, mock_context)
 
   conversation.assert_awaited_once_with(
-    [{"role": "user", "content": "explain this\n\nQuoted message:\nThe quoted message"}], []
+    [{"role": "user", "content": "explain this\n\nQuoted message:\nThe quoted message"}],
+    [],
+    update=mock_update,
+    context=mock_context,
   )
+
+
+@pytest.mark.asyncio
+async def test_assistant_local_reminder_without_mcp(assistant_plugin, mock_update, mock_context):
+  from types import SimpleNamespace
+
+  from lotb.plugins.remindme import Plugin as ReminderPlugin
+
+  assistant_plugin.config_handler.mcp_servers = []
+  reminder = ReminderPlugin()
+  reminder.set_config(assistant_plugin.config)
+  reminder.initialize()
+  assistant_plugin.set_plugins({"llm": assistant_plugin, "remindme": reminder})
+  mock_update.message.message_id = 42
+  mock_update.effective_user.username = "tester"
+  mock_update.message.text = "Dino, remind me in ten minutes to check the oven"
+  call = SimpleNamespace(
+    id="local-call",
+    function=SimpleNamespace(
+      name="lotb_remindme_create", arguments=json.dumps({"amount": 10, "unit": "m", "message": "Check the oven"})
+    ),
+  )
+  first = SimpleNamespace(content=None, tool_calls=[call])
+  final = SimpleNamespace(content="Reminder created", tool_calls=[])
+  with patch.object(
+    assistant_plugin.handler, "_get_llm_response", new=AsyncMock(side_effect=[(first, None), (final, None)])
+  ) as completion:
+    with patch.object(assistant_plugin, "send_typing_action", new_callable=AsyncMock):
+      await assistant_plugin.execute(mock_update, mock_context)
+  mock_context.job_queue.run_once.assert_called_once()
+  assert reminder.db_cursor.execute("SELECT message, chat_id, user_id FROM reminders").fetchone() == (
+    "Check the oven",
+    mock_update.effective_chat.id,
+    mock_update.effective_user.id,
+  )
+  messages, tools = completion.call_args.args
+  assert any(tool["function"]["name"] == "lotb_remindme_create" for tool in tools)
+  tool_result = next(message for message in messages if message["role"] == "tool")
+  assert tool_result["tool_call_id"] == "local-call"
+  assert json.loads(tool_result["content"])["ok"]
+
+
+@pytest.mark.asyncio
+async def test_assistant_local_delete_bypasses_mcp_blocklist(assistant_plugin, mock_update, mock_context):
+  from types import SimpleNamespace
+
+  from lotb.plugins.notes import Plugin as NotesPlugin
+
+  assistant_plugin.config_handler.mcp_servers = []
+  notes = NotesPlugin()
+  notes.set_config(assistant_plugin.config)
+  notes.initialize()
+  notes.admin_ids = [mock_update.effective_user.id]
+  notes.execute_query("INSERT INTO notes (user_id, note) VALUES (?, ?)", (mock_update.effective_user.id, "Delete me"))
+  assistant_plugin.set_plugins({"notes": notes})
+  call = SimpleNamespace(
+    id="delete-call", function=SimpleNamespace(name="lotb_notes_delete", arguments='{"note_id": 1}')
+  )
+  first = SimpleNamespace(content=None, tool_calls=[call])
+  final = SimpleNamespace(content="Deleted", tool_calls=[])
+  with patch.object(
+    assistant_plugin.handler, "_get_llm_response", new=AsyncMock(side_effect=[(first, None), (final, None)])
+  ):
+    await assistant_plugin.handler._handle_llm_conversation([], [], update=mock_update, context=mock_context)
+  assert notes.db_cursor.execute("SELECT COUNT(*) FROM notes").fetchone()[0] == 0
+
+
+@pytest.mark.asyncio
+async def test_assistant_sends_saved_media_without_mcp(assistant_plugin, mock_update, mock_context):
+  from types import SimpleNamespace
+
+  from lotb.plugins.image import Plugin as ImagePlugin
+
+  assistant_plugin.config_handler.mcp_servers = []
+  image = ImagePlugin()
+  image.set_config(assistant_plugin.config)
+  image.initialize()
+  image.save_image(mock_update.effective_chat.id, "celebration", "saved-gif", "gif")
+  assistant_plugin.set_plugins({"image": image})
+  mock_update.message.text = "Dino, send the celebration GIF"
+  mock_context.bot.send_animation = AsyncMock()
+  call = SimpleNamespace(
+    id="media-call",
+    function=SimpleNamespace(
+      name="lotb_image_send", arguments=json.dumps({"name": "celebration", "media_type": "gif"})
+    ),
+  )
+  first = SimpleNamespace(content=None, tool_calls=[call])
+  final = SimpleNamespace(content="", tool_calls=[])
+  with (
+    patch.object(
+      assistant_plugin.handler, "_get_llm_response", new=AsyncMock(side_effect=[(first, None), (final, None)])
+    ) as completion,
+    patch.object(assistant_plugin.handler.mcp, "load_all_tools", new_callable=AsyncMock) as mcp,
+    patch.object(assistant_plugin, "send_typing_action", new_callable=AsyncMock),
+  ):
+    await assistant_plugin.execute(mock_update, mock_context)
+  mcp.assert_not_awaited()
+  mock_context.bot.send_animation.assert_awaited_once_with(chat_id=mock_update.effective_chat.id, animation="saved-gif")
+  mock_update.message.reply_text.assert_not_awaited()
+  tool_result = next(item for item in completion.call_args.args[0] if item["role"] == "tool")
+  assert json.loads(tool_result["content"])["sent_message"] is True
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("arguments", ["{invalid", '{"note_id":true}', '{"note_id":1,"user_id":7}'])
+async def test_invalid_local_calls_do_not_reach_mcp(arguments, assistant_plugin, mock_update, mock_context):
+  from types import SimpleNamespace
+
+  from lotb.plugins.notes import Plugin as NotesPlugin
+
+  notes = NotesPlugin()
+  notes.set_config(assistant_plugin.config)
+  notes.initialize()
+  notes.admin_ids = [mock_update.effective_user.id]
+  assistant_plugin.set_plugins({"notes": notes})
+  messages = []
+  first = SimpleNamespace(
+    content=None,
+    tool_calls=[
+      SimpleNamespace(id="bad-call", function=SimpleNamespace(name="lotb_notes_delete", arguments=arguments))
+    ],
+  )
+  final = SimpleNamespace(content="Invalid request", tool_calls=[])
+  with (
+    patch.object(
+      assistant_plugin.handler, "_get_llm_response", new=AsyncMock(side_effect=[(first, None), (final, None)])
+    ),
+    patch.object(assistant_plugin.handler.tool_handler, "execute_tool_call", new_callable=AsyncMock) as mcp,
+  ):
+    await assistant_plugin.handler._handle_llm_conversation(messages, [], update=mock_update, context=mock_context)
+  mcp.assert_not_awaited()
+  assert not json.loads(next(item for item in messages if item["role"] == "tool")["content"])["ok"]
+
+
+@pytest.mark.asyncio
+async def test_local_tool_iteration_limit_reports_outcome(assistant_plugin, mock_update, mock_context):
+  from types import SimpleNamespace
+
+  from lotb.plugins.notes import Plugin as NotesPlugin
+
+  notes = NotesPlugin()
+  notes.set_config(assistant_plugin.config)
+  notes.initialize()
+  notes.admin_ids = [mock_update.effective_user.id]
+  assistant_plugin.set_plugins({"notes": notes})
+  call = SimpleNamespace(
+    id="add-call", function=SimpleNamespace(name="lotb_notes_add", arguments='{"text":"Buy coffee"}')
+  )
+  response = SimpleNamespace(content=None, tool_calls=[call])
+  with patch.object(
+    assistant_plugin.handler, "_get_llm_response", new=AsyncMock(return_value=(response, None))
+  ) as model:
+    result = await assistant_plugin.handler._handle_llm_conversation([], [], update=mock_update, context=mock_context)
+  assert model.await_count == 3
+  assert "Note added successfully" in result
+  assert "max tool call" not in result
+
+
+@pytest.mark.asyncio
+async def test_mcp_local_name_collision(assistant_plugin, mock_update):
+  assistant_plugin.handler.tools = [{"type": "function", "function": {"name": "lotb_image_send"}}]
+  with pytest.raises(ValueError, match="reserved"):
+    await assistant_plugin.handler._available_tools(mock_update)
+
+
+@pytest.mark.asyncio
+async def test_mixed_tool_failure_preserves_local_outcome(assistant_plugin, mock_update, mock_context):
+  from types import SimpleNamespace
+
+  from lotb.plugins.notes import Plugin as NotesPlugin
+
+  notes = NotesPlugin()
+  notes.set_config(assistant_plugin.config)
+  notes.initialize()
+  notes.admin_ids = [mock_update.effective_user.id]
+  assistant_plugin.set_plugins({"notes": notes})
+  local_call = SimpleNamespace(
+    id="local", function=SimpleNamespace(name="lotb_notes_add", arguments='{"text":"Buy coffee"}')
+  )
+  mcp_call = SimpleNamespace(id="remote", function=SimpleNamespace(name="calendar_tool", arguments="{}"))
+  response = SimpleNamespace(content=None, tool_calls=[local_call, mcp_call])
+  with (
+    patch.object(assistant_plugin.handler, "_get_llm_response", new=AsyncMock(return_value=(response, None))),
+    patch.object(
+      assistant_plugin.handler.tool_handler, "execute_tool_call", new=AsyncMock(return_value="failed")
+    ) as remote,
+  ):
+    result = await assistant_plugin.handler._handle_llm_conversation([], [], update=mock_update, context=mock_context)
+  assert "Note added successfully" in result
+  assert "failed" in result
+  assert notes.db_cursor.execute("SELECT COUNT(*) FROM notes").fetchone()[0] == 1
+  assert remote.call_args.args[0].id == "remote"

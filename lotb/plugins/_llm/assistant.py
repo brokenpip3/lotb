@@ -1,3 +1,4 @@
+import json
 import re
 from typing import Any
 from typing import Callable
@@ -14,6 +15,8 @@ from .mcp_manager import MCPManager
 from .prompts import ASSISTANT_DEFAULT_PROMPT
 from .prompts import SystemPromptBuilder
 from .tool_handler import ToolHandler
+from lotb.common.tools import LocalToolRegistry
+from lotb.common.tools import ToolResult
 
 if TYPE_CHECKING:
   from lotb.common.plugin_class import PluginBase
@@ -87,6 +90,12 @@ class AssistantHandler:
 
     return self.tools or []
 
+  async def _available_tools(self, update: Update) -> List[Dict[str, Any]]:
+    mcp_tools = await self._ensure_tools_loaded()
+    if any(tool.get("function", {}).get("name", "").startswith("lotb_") for tool in mcp_tools):
+      raise ValueError("MCP tool names cannot use the reserved lotb_ prefix")
+    return mcp_tools + LocalToolRegistry(self.plugin.plugins).definitions(update)
+
   async def _generate_capabilities_summary(self) -> str:
     if not self.tools and not self.resources:
       return "no capabilities available at the moment"
@@ -114,10 +123,15 @@ class AssistantHandler:
 
     return "\n\n".join(summary_parts) if summary_parts else "no capabilities available at the moment"
 
-  async def _ensure_system_message(self, messages: List[Dict[str, Any]]):
-    system_content = self.system_prompt_builder.with_capabilities(
-      self.capabilities_summary or "loading capabilities..."
-    ).build()
+  async def _ensure_system_message(self, messages: List[Dict[str, Any]], tools=None):
+    capabilities = self.capabilities_summary or "no MCP capabilities configured"
+    if tools:
+      capabilities += "\nAvailable tools for this request:\n" + "\n".join(
+        f"{tool['function']['name']}: {tool['function'].get('description', '')}"
+        for tool in tools
+        if tool.get("type") == "function"
+      )
+    system_content = self.system_prompt_builder.with_capabilities(capabilities).build()
     if not messages or messages[0].get("role") != "system":
       messages.insert(0, {"role": "system", "content": system_content})
     else:
@@ -134,9 +148,15 @@ class AssistantHandler:
     return response.choices[0].message, None
 
   async def _handle_llm_conversation(
-    self, messages: List[Dict[str, Any]], tools: Optional[List[Dict[str, Any]]] = None
+    self,
+    messages: List[Dict[str, Any]],
+    tools: Optional[List[Dict[str, Any]]] = None,
+    *,
+    update: Optional[Update] = None,
+    context=None,
   ) -> str:
-    await self._ensure_system_message(messages)
+    await self._ensure_system_message(messages, tools)
+    local_results = []
 
     max_iterations = 3
     iteration = 0
@@ -154,14 +174,39 @@ class AssistantHandler:
 
       all_successful = True
       for tool_call in content.tool_calls:
+        if tool_call.function.name.startswith("lotb_"):
+          try:
+            arguments = json.loads(tool_call.function.arguments)
+            if update is None or context is None:
+              local_result = ToolResult(False, {}, "Missing Telegram request context")
+            else:
+              local_result = await LocalToolRegistry(self.plugin.plugins).execute(
+                tool_call.function.name, arguments, update, context
+              )
+          except (json.JSONDecodeError, TypeError):
+            local_result = ToolResult(False, {}, "Invalid tool arguments: expected a JSON object")
+          local_results.append(local_result)
+          messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": json.dumps(local_result.as_dict())})
+          continue
         result = await self.tool_handler.execute_tool_call(tool_call, messages, tools or [])
         if result == "failed" or result is None:
           all_successful = False
 
       if not all_successful:
+        if local_results:
+          return self._local_summary(local_results) + "\ntool execution failed"
         return "tool execution failed"
 
+    if local_results:
+      return self._local_summary(local_results)
     return "max tool call iterations reached"
+
+  @staticmethod
+  def _local_summary(results: List[ToolResult]) -> str:
+    return "\n".join(
+      result.data.get("message", json.dumps(result.data)) if result.ok else f"Action failed: {result.error}"
+      for result in results
+    )
 
   def _get_special_command_handler(self, text: str) -> Optional[Callable]:
     commands = {
@@ -177,7 +222,7 @@ class AssistantHandler:
     return None
 
   async def show_tools(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    tools = await self._ensure_tools_loaded()
+    tools = await self._available_tools(update)
 
     if not tools:
       await self.plugin.reply_message(update, context, "no tools available")
@@ -186,13 +231,16 @@ class AssistantHandler:
     response = "🛠️Available Tools:\n\n"
     regular_tools = []
     resource_tools = []
+    local_tools = []
 
     for tool in tools:
       if tool.get("type") == "function":
         name = tool["function"]["name"]
         desc = tool["function"].get("description", "no description")
 
-        if name.startswith("read_resource_"):
+        if name.startswith("lotb_"):
+          local_tools.append(f"⚙️ {name}: {desc}")
+        elif name.startswith("read_resource_"):
           resource_tools.append(f"📖 `{name}`: {desc}")
         else:
           server_name = self.mcp.tool_to_server_map.get(name, {}).get("name", "unknown")
@@ -200,6 +248,9 @@ class AssistantHandler:
 
     if regular_tools:
       response += "mcp tools:\n" + "\n".join(regular_tools) + "\n\n"
+
+    if local_tools:
+      response += "plugin tools:\n" + "\n".join(local_tools) + "\n\n"
 
     if resource_tools:
       response += "resource tools:\n" + "\n".join(resource_tools)
@@ -211,7 +262,7 @@ class AssistantHandler:
 
 Commands:
 • /llm <prompt> - ask something using available tools
-• /llm tools - show available mcp tools and resources
+• /llm tools - show available plugin tools and MCP tools/resources
 • /llm status - show plugin status
 • /llm help - show this help
 • /llm reset - clear your conversation history in this chat
@@ -219,7 +270,8 @@ Commands:
     await self.plugin.reply_message(update, context, help_text)
 
   async def show_status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    tools = await self._ensure_tools_loaded()
+    tools = await self._available_tools(update)
+    local_count = sum(tool.get("function", {}).get("name", "").startswith("lotb_") for tool in tools)
     status = f"""🔧 Assistant status
 
 Configuration:
@@ -229,6 +281,7 @@ Configuration:
 
 Loaded:
 • tools: {len(tools)}
+• local plugin tools: {local_count}
 • resources: {len(self.resources or [])}
 • server mappings: {len(self.mcp.tool_to_server_map)}
 
@@ -262,7 +315,7 @@ Servers:
       if user and chat:
         user_id = user.id
         chat_id = chat.id
-        tools = await self._ensure_tools_loaded()
+        tools = await self._available_tools(update)
         self.plugin.log_info(f"using {len(tools)} tools for this request")
         history = self.history.get_conversation_history(user_id, chat_id)
         quoted_text = ""
@@ -270,11 +323,12 @@ Servers:
           quoted_text = f"\n\nQuoted message:\n{update.message.reply_to_message.text}"
         messages = [*history, {"role": "user", "content": f"{text}{quoted_text}"}]
         await self.plugin.send_typing_action(update, context)
-        response = await self._handle_llm_conversation(messages, tools)
+        response = await self._handle_llm_conversation(messages, tools, update=update, context=context)
         self.plugin.log_info(f"responding with: '{response[:100]}...'")
         self.history.save_message(user_id, chat_id, "user", text)
         self.history.save_message(user_id, chat_id, "assistant", response)
-        await self.plugin.reply_message(update, context, response)
+        if response:
+          await self.plugin.reply_message(update, context, response)
     except Exception as e:
       await self.plugin.reply_message(
         update, context, f"sorry, something went wrong while processing your request: {str(e)}"
@@ -291,7 +345,7 @@ Servers:
       await self.show_help(update, context)
       return
 
-    text = update.message.text.replace("/llm", "", 1).strip()
+    text = self.plugin.command_arguments(update).strip()
     if not text:
       await self.show_help(update, context)
       return

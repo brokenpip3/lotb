@@ -115,12 +115,14 @@ async def test_send_reminder_with_user_id(mock_context, remindme_plugin, mock_up
 async def test_set_job_queue(mock_db, remindme_plugin):
   job_queue = MagicMock()
   mock_cursor = mock_db.mock_cursor
-  mock_cursor.fetchall.return_value = [(1045, 67890, "Test message", "2025-01-01 12:05:00", 10, "random-unique-user")]
+  mock_cursor.fetchall.return_value = [
+    (1, 1045, 67890, "Test message", "2025-01-01 12:05:00", 10, "random-unique-user")
+  ]
   remindme_plugin.db_cursor = mock_cursor
 
   with patch("lotb.plugins.remindme.datetime") as mock_datetime:
     mock_datetime.now.return_value = datetime(2025, 1, 1)
-    mock_datetime.strptime.side_effect = lambda *args, **kw: datetime.strptime(*args, **kw)
+    mock_datetime.fromisoformat.side_effect = datetime.fromisoformat
     remindme_plugin.set_job_queue(job_queue)
 
   job_queue.run_once.assert_called_once()
@@ -199,3 +201,94 @@ async def test_remindme_database_error(mock_update, mock_context, remindme_plugi
 
   await remindme_plugin.execute(mock_update, mock_context)
   remindme_plugin.log_error.assert_called_once_with("failed to set reminder: DB error")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("prefix", ["/", "!"])
+async def test_reminder_explicit_text_without_reply(prefix, mock_update, mock_context, remindme_plugin):
+  mock_update.message.text = f"{prefix}remindme 10m Check the oven"
+  await remindme_plugin.execute(mock_update, mock_context)
+  job = mock_context.job_queue.run_once.call_args
+  assert job.kwargs["data"]["message"] == "Check the oven"
+  assert job.kwargs["data"]["original_message_id"] == mock_update.message.message_id
+
+
+@pytest.mark.asyncio
+async def test_reminder_missing_scheduler(mock_update, mock_context, remindme_plugin):
+  mock_context.job_queue = None
+  remindme_plugin.db_cursor.execute.reset_mock()
+  result = await remindme_plugin.create_reminder(mock_update, mock_context, 10, "m", "Check oven")
+  assert not result.ok
+  remindme_plugin.db_cursor.execute.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_reminder_scheduling_failure_rolls_back(mock_update, mock_context):
+  mock_update.message.message_id = 42
+  mock_update.effective_user.username = "tester"
+  plugin = Plugin()
+  config = MagicMock()
+  config.get.side_effect = lambda key, default=None: {"core.database": ":memory:"}.get(key, default)
+  plugin.set_config(config)
+  plugin.initialize()
+  mock_context.job_queue.run_once.side_effect = RuntimeError("scheduler failed")
+  result = await plugin.create_reminder(mock_update, mock_context, 10, "m", "Check oven")
+  assert not result.ok
+  assert plugin.db_cursor.execute("SELECT COUNT(*) FROM reminders").fetchone()[0] == 0
+
+
+@pytest.mark.asyncio
+async def test_reminder_restores_fractional_timestamp(mock_update, mock_context):
+  mock_update.message.message_id = 42
+  mock_update.effective_user.username = "tester"
+  plugin = Plugin()
+  config = MagicMock()
+  config.get.side_effect = lambda key, default=None: {"core.database": ":memory:"}.get(key, default)
+  plugin.set_config(config)
+  plugin.initialize()
+  result = await plugin.create_reminder(mock_update, mock_context, 10, "m", "Check oven")
+  assert result.ok
+  queue = MagicMock()
+  plugin.set_job_queue(queue)
+  queue.run_once.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_same_text_reminders_keep_independent_persistence(mock_update, mock_context):
+  from types import SimpleNamespace
+
+  plugin = Plugin()
+  config = MagicMock()
+  config.get.side_effect = lambda key, default=None: {"core.database": ":memory:"}.get(key, default)
+  plugin.set_config(config)
+  plugin.initialize()
+  mock_update.message.message_id = 42
+  mock_update.effective_user.username = "tester"
+  assert (await plugin.create_reminder(mock_update, mock_context, 10, "m", "Check oven")).ok
+  first = mock_context.job_queue.run_once.call_args.kwargs
+  assert (await plugin.create_reminder(mock_update, mock_context, 20, "m", "Check oven")).ok
+  mock_context.job = SimpleNamespace(chat_id=first["chat_id"], user_id=first["user_id"], data=first["data"])
+  await plugin._send_reminder(mock_context)
+  assert plugin.db_cursor.execute("SELECT COUNT(*) FROM reminders").fetchone()[0] == 1
+  queue = MagicMock()
+  plugin.set_job_queue(queue)
+  queue.run_once.assert_called_once()
+  assert "reminder_id" in queue.run_once.call_args.kwargs["data"]
+
+
+@pytest.mark.asyncio
+async def test_reminder_commit_failure_cancels_job(mock_update, mock_context):
+  plugin = Plugin()
+  config = MagicMock()
+  config.get.side_effect = lambda key, default=None: {"core.database": ":memory:"}.get(key, default)
+  plugin.set_config(config)
+  plugin.initialize()
+  mock_update.message.message_id = 42
+  mock_update.effective_user.username = "tester"
+  connection = plugin.connection
+  plugin.connection = MagicMock(wraps=connection)
+  plugin.connection.commit.side_effect = RuntimeError("Commit failed")
+  result = await plugin.create_reminder(mock_update, mock_context, 10, "m", "Check oven")
+  assert not result.ok
+  mock_context.job_queue.run_once.return_value.schedule_removal.assert_called_once()
+  assert plugin.db_cursor.execute("SELECT COUNT(*) FROM reminders").fetchone()[0] == 0

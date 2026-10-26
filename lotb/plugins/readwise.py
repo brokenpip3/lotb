@@ -3,6 +3,8 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from lotb.common.plugin_class import PluginBase
+from lotb.common.tools import plugin_tool
+from lotb.common.tools import ToolResult
 
 
 class Plugin(PluginBase):
@@ -24,20 +26,32 @@ class Plugin(PluginBase):
       response = client.get("https://readwise.io/api/v2/auth/", headers=headers)
     return response.status_code == 204
 
-  async def save_to_readwise(self, update: Update, context: ContextTypes.DEFAULT_TYPE, url: str):
-    user_id = update.effective_user.id if update.effective_user else None
+  def get_tools(self):
+    return [
+      plugin_tool(
+        "lotb_readwise_save",
+        "Save an HTTP(S) URL to Readwise",
+        {"url": {"type": "string", "pattern": "^https?://[^\\s]+$"}},
+        self.save_action,
+      )
+    ]
+
+  async def save_action(self, update, context, url: str) -> ToolResult:
     headers = {"Authorization": f"Token {self.readwise_token}"}
-    data = {"url": url}
     async with httpx.AsyncClient() as client:
-      response = await client.post("https://readwise.io/api/v3/save/", headers=headers, json=data)
+      response = await client.post("https://readwise.io/api/v3/save/", headers=headers, json={"url": url})
     if response.status_code == 201:
-      await self.reply_quote_message(update, context, "URL saved to Readwise successfully.")
-      self.log_info(f"Saved {url} for user {user_id}")
-    elif response.status_code == 200:
-      await self.reply_quote_message(update, context, "URL already exists in your Readwise archive.")
-    else:
-      await self.reply_quote_message(update, context, "Failed to save URL to Readwise.")
-      self.log_error(f"Failed to save URL to Readwise. Status code: {response.status_code}, Response: {response.text}")
+      return ToolResult(True, {"message": "URL saved to Readwise successfully.", "status": "saved"})
+    if response.status_code == 200:
+      return ToolResult(True, {"message": "URL already exists in your Readwise archive.", "status": "already_present"})
+    self.log_error(f"Failed to save URL to Readwise. Status code: {response.status_code}, Response: {response.text}")
+    return ToolResult(False, {}, "Failed to save URL to Readwise.")
+
+  async def save_to_readwise(self, update: Update, context: ContextTypes.DEFAULT_TYPE, url: str):
+    result = await self.save_action(update, context, url)
+    await self.reply_quote_message(
+      update, context, result.data["message"] if result.ok else result.error or "Action failed"
+    )
 
   def extract_url_from_message(self, message_text: str) -> str:
     words = message_text.split()

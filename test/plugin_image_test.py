@@ -445,3 +445,59 @@ async def test_get_media_list_no_cursor(image_plugin):
   image_plugin.db_cursor = None
   names = image_plugin.get_media_list(996699)
   assert names == []
+
+
+@pytest.mark.asyncio
+async def test_image_local_tools(image_plugin, mock_update, mock_context):
+  from lotb.common.tools import LocalToolRegistry
+
+  registry = LocalToolRegistry({"image": image_plugin})
+  image_plugin.save_image(mock_update.effective_chat.id, "celebration", "saved-gif", "gif")
+  image_plugin.save_image(mock_update.effective_chat.id + 1, "private", "other-photo", "photo")
+  listed = await registry.execute("lotb_image_list", {}, mock_update, mock_context)
+  assert listed.ok
+  assert listed.data["media"] == [{"name": "celebration", "media_type": "gif"}]
+  mock_update.message.reply_text.assert_not_awaited()
+  mock_context.bot.send_animation = AsyncMock()
+  sent = await registry.execute(
+    "lotb_image_send", {"name": "celebration", "media_type": "gif"}, mock_update, mock_context
+  )
+  assert sent.ok and sent.sent_message
+  mock_context.bot.send_animation.assert_awaited_once_with(chat_id=mock_update.effective_chat.id, animation="saved-gif")
+  missing = await registry.execute(
+    "lotb_image_send", {"name": "private", "media_type": "photo"}, mock_update, mock_context
+  )
+  assert not missing.ok and not missing.sent_message
+
+
+@pytest.mark.asyncio
+async def test_image_tool_search_missing_keys(image_plugin, mock_update, mock_context):
+  from lotb.common.tools import LocalToolRegistry
+
+  image_plugin.unsplash_auth = None
+  result = await LocalToolRegistry({"image": image_plugin}).execute(
+    "lotb_image_search", {"query": "cats"}, mock_update, mock_context
+  )
+  assert not result.ok
+  assert "keys" in result.error
+  mock_context.bot.send_photo.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_real_animation_bang_caption(image_plugin, mock_context):
+  from telegram import Update
+
+  message = Message.de_json(
+    {
+      "message_id": 42,
+      "date": 1,
+      "chat": {"id": 996699, "type": "private"},
+      "animation": {"file_id": "gif-file", "file_unique_id": "unique", "width": 10, "height": 10, "duration": 1},
+      "caption": "!image celebration",
+    },
+    None,
+  )
+  update = Update(1, message=message)
+  with patch.object(image_plugin, "reply_message", new_callable=AsyncMock):
+    await image_plugin.handle_media(update, mock_context)
+  assert image_plugin.get_image(996699, "celebration", "gif") == "gif-file"

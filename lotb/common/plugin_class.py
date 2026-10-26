@@ -13,6 +13,9 @@ from telegram.constants import ChatAction
 from telegram.ext import ContextTypes
 from telegram.ext import JobQueue
 
+from lotb.common.commands import command_arguments
+from lotb.common.tools import PluginTool
+
 
 class SecurityValidator:
   def __init__(self):
@@ -59,6 +62,7 @@ class PluginBase:
     self.auth_group_ids: List[int] = []
     self.auth_group_enabled = False
     self.security_validator = SecurityValidator()
+    self.plugins: dict[str, PluginBase] = {}
 
   def initialize_plugin(self):
     if self.config is None:
@@ -108,6 +112,13 @@ class PluginBase:
 
   def set_plugins(self, plugins):
     self.plugins = plugins
+
+  def get_tools(self) -> list[PluginTool]:
+    return []
+
+  def command_arguments(self, update: Update) -> str:
+    message = update.effective_message
+    return command_arguments((message.text or message.caption or "") if message else "")
 
   def create_table(self, query: str):
     if self.db_cursor:

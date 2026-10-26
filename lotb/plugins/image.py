@@ -7,6 +7,8 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from lotb.common.plugin_class import PluginBase
+from lotb.common.tools import plugin_tool
+from lotb.common.tools import ToolResult
 
 
 class Plugin(PluginBase):
@@ -66,15 +68,14 @@ class Plugin(PluginBase):
       await self.reply_message(update, context, "Chat information is unavailable.")
       return
 
-    chat_id = update.effective_chat.id
-
     if update.message and update.message.text:
       message_text = update.message.text.split(maxsplit=1)
       if len(message_text) > 1:
         command = message_text[0]
         term = message_text[1]
       else:
-        media_list = self.get_media_list(chat_id)
+        media_result = await self.list_media_action(update, context)
+        media_list = [(item["name"], item["media_type"]) for item in media_result.data["media"]]
         if media_list:
           media_groups: dict[str, list[str]] = {}
           for name, file_type in media_list:
@@ -98,52 +99,83 @@ class Plugin(PluginBase):
       await self.reply_message(update, context, "Please provide a search term or reply to an image.")
       return
 
-    if command == "/image":
+    if command.lstrip("/!").split("@", 1)[0] == "image":
       self.log_info("image save or search request")
       if update.message and update.message.reply_to_message:
-        reply_msg = update.message.reply_to_message
-        if reply_msg.sticker:
-          file_id = reply_msg.sticker.file_id
-          file_type = "sticker"
-        elif reply_msg.animation:
-          file_id = reply_msg.animation.file_id
-          file_type = "gif"
-        elif reply_msg.photo:
-          file_id = reply_msg.photo[-1].file_id
-          file_type = "photo"
-        else:
-          await self.reply_message(update, context, "please reply to an image, gif or sticker to save it")
-          return
-
-        name = term
-        if self.save_image(chat_id, name, file_id, file_type):
-          await self.reply_message(update, context, f"{file_type} saved with name: {name}")
-        else:
-          await self.reply_message(
-            update, context, f"A {file_type} named '{name}' already exists, use a different name."
-          )
-          self.log_info(f"image with name: {name} already exists for chat {chat_id}, not saving")
-        return
-      elif self.unsplash_auth:
-        self.log_info(f"Searching for image with term: {term}")
-        try:
-          file_id = await self.search_unsplash_image(term)
-          if file_id:
-            await context.bot.send_photo(chat_id=update.effective_chat.id, photo=file_id)
-            return
-          else:
-            await self.reply_message(update, context, f"No image found for term: {term}")
-            return
-        except httpx.HTTPStatusError as e:
-          if e.response.status_code == 500:
-            await self.reply_message(update, context, "error occurred while fetching image from unsplash")
-            self.log_info(f"error searching for an image: {term}, HTTP status 500")
-            return
-          else:
-            await self.reply_message(update, context, f"Unexpected error: {e}")
-            self.log_info(f"Unexpected error searching for image: {term}, exception: {e}")
+        result = await self.save_media_action(update, context, term)
       else:
-        await self.reply_message(update, context, "Image search is unavailable due to missing Unsplash keys.")
+        result = await self.search_media_action(update, context, term)
+      if not result.sent_message:
+        await self.reply_message(
+          update, context, result.data["message"] if result.ok else result.error or "Image action failed"
+        )
+
+  def get_tools(self):
+    text = {"type": "string", "minLength": 1}
+    return [
+      plugin_tool("lotb_image_list", "List saved media in this chat", {}, self.list_media_action),
+      plugin_tool(
+        "lotb_image_send",
+        "Send saved media from this chat",
+        {"name": text, "media_type": {"type": "string", "enum": ["photo", "gif", "sticker"]}},
+        self.send_media_action,
+      ),
+      plugin_tool("lotb_image_search", "Search Unsplash and send a photo", {"query": text}, self.search_media_action),
+      plugin_tool(
+        "lotb_image_save", "Save the actual replied-to photo, GIF or sticker", {"name": text}, self.save_media_action
+      ),
+    ]
+
+  async def list_media_action(self, update, context) -> ToolResult:
+    media = self.get_media_list(update.effective_chat.id)
+    return ToolResult(True, {"media": [{"name": name, "media_type": kind} for name, kind in media]})
+
+  async def save_media_action(self, update, context, name: str) -> ToolResult:
+    reply = update.message.reply_to_message if update.message else None
+    if not reply:
+      return ToolResult(False, {}, "please reply to an image, gif or sticker to save it")
+    if reply.sticker:
+      file_id, kind = reply.sticker.file_id, "sticker"
+    elif reply.animation:
+      file_id, kind = reply.animation.file_id, "gif"
+    elif reply.photo:
+      file_id, kind = reply.photo[-1].file_id, "photo"
+    else:
+      return ToolResult(False, {}, "please reply to an image, gif or sticker to save it")
+    if not self.save_image(update.effective_chat.id, name, file_id, kind):
+      return ToolResult(False, {}, f"A {kind} named '{name}' already exists, use a different name.")
+    return ToolResult(True, {"message": f"{kind} saved with name: {name}"})
+
+  async def send_media_action(self, update, context, name: str, media_type: str) -> ToolResult:
+    file_id = self.get_image(update.effective_chat.id, name, media_type)
+    if not file_id:
+      return ToolResult(False, {}, f"No {media_type} found with name: {name}")
+    if media_type == "photo":
+      await context.bot.send_photo(chat_id=update.effective_chat.id, photo=file_id)
+    elif media_type == "gif":
+      await context.bot.send_animation(chat_id=update.effective_chat.id, animation=file_id)
+    elif media_type == "sticker":
+      await context.bot.send_sticker(chat_id=update.effective_chat.id, sticker=file_id)
+    else:
+      return ToolResult(False, {}, "Unsupported media type")
+    return ToolResult(True, {"message": f"Sent {media_type}: {name}"}, sent_message=True)
+
+  async def search_media_action(self, update, context, query: str) -> ToolResult:
+    if not self.unsplash_auth:
+      return ToolResult(False, {}, "Image search is unavailable due to missing Unsplash keys.")
+    try:
+      url = await self.search_unsplash_image(query)
+      if not url:
+        return ToolResult(False, {}, f"No image found for term: {query}")
+      await context.bot.send_photo(chat_id=update.effective_chat.id, photo=url)
+      return ToolResult(True, {"message": f"Sent a photo for: {query}"}, sent_message=True)
+    except httpx.HTTPStatusError as error:
+      message = (
+        "error occurred while fetching image from unsplash"
+        if error.response.status_code == 500
+        else f"Unexpected error: {error}"
+      )
+      return ToolResult(False, {}, message)
 
   def save_image(self, chat_id: int, name: str, file_id: str, file_type: str) -> bool:
     existing = self.get_image(chat_id, name, file_type)
@@ -157,7 +189,9 @@ class Plugin(PluginBase):
     return True
 
   async def handle_media(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message and update.message.caption and update.message.caption.startswith("/image"):
+    if (
+      update.message and update.message.caption and update.message.caption.split(maxsplit=1)[0] in ("/image", "!image")
+    ):
       message_text = update.message.caption.split(maxsplit=1)
       if len(message_text) > 1:
         name = message_text[1]
@@ -169,19 +203,15 @@ class Plugin(PluginBase):
         await self.reply_message(update, context, "Chat information is unavailable.")
         return
 
-      match (update.message.sticker, update.message.animation, update.message.photo):
-        case (sticker, None, None) if sticker:
-          file_id = sticker.file_id
-          file_type = "sticker"
-        case (None, animation, None) if animation:
-          file_id = animation.file_id
-          file_type = "gif"
-        case (None, None, photo) if photo:
-          file_id = photo[-1].file_id
-          file_type = "photo"
-        case _:
-          await self.reply_message(update, context, "No media found in the message.")
-          return
+      if update.message.sticker:
+        file_id, file_type = update.message.sticker.file_id, "sticker"
+      elif update.message.animation:
+        file_id, file_type = update.message.animation.file_id, "gif"
+      elif update.message.photo:
+        file_id, file_type = update.message.photo[-1].file_id, "photo"
+      else:
+        await self.reply_message(update, context, "No media found in the message.")
+        return
 
       if self.save_image(update.effective_chat.id, name, file_id, file_type):
         await self.reply_message(update, context, f"Saved with name: {name}")
@@ -208,16 +238,9 @@ class Plugin(PluginBase):
       await self.reply_message(update, context, "Chat information is unavailable.")
       return
 
-    file_id = self.get_image(update.effective_chat.id, name, file_type)
-    if file_id:
-      if file_type == "photo":
-        await context.bot.send_photo(chat_id=update.effective_chat.id, photo=file_id)
-      elif file_type == "gif":
-        await context.bot.send_animation(chat_id=update.effective_chat.id, animation=file_id)
-      elif file_type == "sticker":
-        await context.bot.send_sticker(chat_id=update.effective_chat.id, sticker=file_id)
-    else:
-      await self.reply_message(update, context, f"No {file_type} found with name: {name}")
+    result = await self.send_media_action(update, context, name, file_type)
+    if not result.ok:
+      await self.reply_message(update, context, result.error or "Action failed")
 
   def get_media_list(self, chat_id: int) -> List[Tuple[str, str]]:
     if self.db_cursor:

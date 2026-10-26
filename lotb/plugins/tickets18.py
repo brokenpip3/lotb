@@ -17,6 +17,8 @@ from telegram.ext import ContextTypes
 from telegram.ext import JobQueue
 
 from lotb.common.plugin_class import PluginBase
+from lotb.common.tools import plugin_tool
+from lotb.common.tools import ToolResult
 
 
 def normalize_venue(url: str) -> str:
@@ -213,47 +215,97 @@ class Plugin(PluginBase):
           self.log_warning(f"Could not retrieve description for {film.url}: {error}")
       return films
 
+  def get_tools(self):
+    return [
+      plugin_tool(
+        "lotb_tickets18_add",
+        "Subscribe this chat to cinema summaries",
+        {"venue": {"type": "string", "minLength": 1}, "weekday": {"type": "string", "enum": ["monday", "friday"]}},
+        self.add_action,
+      ),
+      plugin_tool("lotb_tickets18_list", "List this chat's cinema subscriptions", {}, self.list_action),
+      plugin_tool(
+        "lotb_tickets18_remove",
+        "Remove a cinema subscription in this chat",
+        {"subscription_id": {"type": "integer", "minimum": 1, "maximum": 999999999999999999}},
+        self.remove_action,
+      ),
+      plugin_tool("lotb_tickets18_now", "Send cinema summaries for this chat now", {}, self.now_action),
+    ]
+
+  async def add_action(self, update, context, venue: str, weekday: str) -> ToolResult:
+    if self.db_cursor is None:
+      return ToolResult(False, {}, "Cinema database is unavailable")
+    try:
+      venue = normalize_venue(venue)
+    except ValueError as error:
+      return ToolResult(False, {}, str(error))
+    if weekday not in ("monday", "friday"):
+      return ToolResult(False, {}, "Invalid subscription weekday")
+    chat_id = update.effective_chat.id
+    self.execute_query(
+      "INSERT OR IGNORE INTO tickets18_subscriptions (chat_id, venue, weekday) VALUES (?, ?, ?)",
+      (chat_id, venue, weekday),
+    )
+    self.db_cursor.execute(
+      "SELECT id FROM tickets18_subscriptions WHERE chat_id = ? AND venue = ? AND weekday = ?",
+      (chat_id, venue, weekday),
+    )
+    subscription_id = self.db_cursor.fetchone()[0]
+    return ToolResult(
+      True, {"subscription_id": subscription_id, "message": f"Subscription {subscription_id}: {venue} ({weekday})"}
+    )
+
+  async def list_action(self, update, context) -> ToolResult:
+    if self.db_cursor is None:
+      return ToolResult(False, {}, "Cinema database is unavailable")
+    self.db_cursor.execute(
+      "SELECT id, venue, weekday FROM tickets18_subscriptions WHERE chat_id = ? ORDER BY id",
+      (update.effective_chat.id,),
+    )
+    rows = self.db_cursor.fetchall()
+    message = (
+      "\n".join(f"{row[0]}: {row[1]} ({row[2]})" for row in rows) if rows else "No cinema subscriptions in this chat."
+    )
+    return ToolResult(
+      True, {"subscriptions": [{"id": row[0], "venue": row[1], "weekday": row[2]} for row in rows], "message": message}
+    )
+
+  async def remove_action(self, update, context, subscription_id: int) -> ToolResult:
+    if self.db_cursor is None:
+      return ToolResult(False, {}, "Cinema database is unavailable")
+    self.execute_query(
+      "DELETE FROM tickets18_subscriptions WHERE id = ? AND chat_id = ?", (subscription_id, update.effective_chat.id)
+    )
+    if self.db_cursor.rowcount:
+      return ToolResult(True, {"message": "Subscription removed."})
+    return ToolResult(False, {}, "Subscription not found in this chat.")
+
+  async def now_action(self, update, context) -> ToolResult:
+    return await self.send_summaries(context, chat_id=update.effective_chat.id)
+
   async def execute(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
     if not update.effective_message or not update.effective_chat or not self.db_cursor:
       return
     args = context.args or []
-    chat_id = update.effective_chat.id
     if len(args) == 3 and args[0] == "add" and args[2] in ("monday", "friday"):
-      try:
-        venue = normalize_venue(args[1])
-      except ValueError as error:
-        await self.reply_message(update, context, str(error))
-        return
-      self.execute_query(
-        "INSERT OR IGNORE INTO tickets18_subscriptions (chat_id, venue, weekday) VALUES (?, ?, ?)",
-        (chat_id, venue, args[2]),
-      )
-      self.db_cursor.execute(
-        "SELECT id FROM tickets18_subscriptions WHERE chat_id = ? AND venue = ? AND weekday = ?",
-        (chat_id, venue, args[2]),
-      )
-      subscription_id = self.db_cursor.fetchone()[0]
-      await self.reply_message(update, context, f"Subscription {subscription_id}: {venue} ({args[2]})")
+      result = await self.add_action(update, context, args[1], args[2])
     elif args == ["list"]:
-      self.db_cursor.execute(
-        "SELECT id, venue, weekday FROM tickets18_subscriptions WHERE chat_id = ? ORDER BY id", (chat_id,)
-      )
-      rows = self.db_cursor.fetchall()
-      lines = [f"{subscription_id}: {venue} ({weekday})" for subscription_id, venue, weekday in rows]
-      for text in self.split_messages("\n".join(lines) if lines else "No cinema subscriptions in this chat."):
-        await self.reply_message(update, context, text)
+      result = await self.list_action(update, context)
     elif args == ["now"]:
-      await self.send_summaries(context, chat_id=chat_id)
+      await self.now_action(update, context)
+      return
     elif len(args) == 2 and args[0] == "remove" and args[1].isascii() and args[1].isdigit() and len(args[1]) <= 18:
-      self.execute_query("DELETE FROM tickets18_subscriptions WHERE id = ? AND chat_id = ?", (int(args[1]), chat_id))
-      text = "Subscription removed." if self.db_cursor.rowcount else "Subscription not found in this chat."
-      await self.reply_message(update, context, text)
+      result = await self.remove_action(update, context, int(args[1]))
     else:
       await self.reply_message(
         update,
         context,
         "Usage:\n/tickets18 add <cinema URL> monday|friday\n/tickets18 list\n/tickets18 remove <id>\n/tickets18 now",
       )
+      return
+    for message in self.split_messages(result.data["message"] if result.ok else result.error or "Action failed"):
+      await self.reply_message(update, context, message)
 
   def set_job_queue(self, job_queue: JobQueue):
     for weekday, day in (("monday", 1), ("friday", 5)):
@@ -264,7 +316,7 @@ class Plugin(PluginBase):
 
   async def send_summaries(self, context: ContextTypes.DEFAULT_TYPE, chat_id: int | None = None):
     if not self.db_cursor or (chat_id is None and not context.job):
-      return
+      return ToolResult(False, {}, "Cinema database or job context unavailable")
     weekday = context.job.data if chat_id is None else "monday"
     today = datetime.now(self.timezone).date()
     monday = today - timedelta(days=today.weekday())
@@ -284,18 +336,30 @@ class Plugin(PluginBase):
         chat_id=chat_id, text="No cinema subscriptions in this chat. Use /tickets18 add <cinema URL> monday|friday."
       )
     schedules: dict[str, list[Film]] = {}
+    failures = []
+    sent = False
     for recipient, venue in subscriptions:
       try:
         if venue not in schedules:
           schedules[venue] = await self.fetch_schedule(venue)
         for text in self.format_summary(venue, schedules[venue], start, end):
           await context.bot.send_message(chat_id=recipient, text=text, parse_mode="HTML", disable_web_page_preview=True)
+          sent = True
       except Exception as error:
+        failures.append(venue)
         self.log_error(f"Failed to deliver tickets18 summary for {venue} to {recipient}: {error}")
         if chat_id is not None:
           await context.bot.send_message(
             chat_id=recipient, text=f"Could not retrieve the schedule for {venue}. Try again later."
           )
+
+    if failures:
+      return ToolResult(False, {"failed_venues": failures}, "Could not deliver all cinema summaries", sent_message=True)
+    return ToolResult(
+      True,
+      {"message": "Cinema summaries sent" if subscriptions else "No cinema subscriptions in this chat."},
+      sent_message=sent or chat_id is not None,
+    )
 
   def format_summary(self, venue: str, films: list[Film], start: date, end: date) -> list[str]:
     lines = [f"Cinema: {venue}", f"{start:%d/%m/%Y} – {end:%d/%m/%Y}"]
