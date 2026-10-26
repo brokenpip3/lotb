@@ -54,8 +54,8 @@ docker-build: docker-version
 
 # push docker image
 docker-push:
-    @export IMAGE=$(docker images | grep -E "lotb" | awk '{print $1":"$2}' | head -n 1) && \
-    docker push $IMAGE
+    @IMAGE=$(tar -xOf result manifest.json | python3 -c 'import json, sys; print(json.load(sys.stdin)[0]["RepoTags"][0])') && \
+    docker push "$IMAGE"
 
 # restart container
 docker-compose-recreate:
