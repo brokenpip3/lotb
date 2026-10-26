@@ -147,6 +147,13 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
   ```toml
   [plugins.remindme]
   enabled = true # enable or disable the plugin
+* [18tickets](https://www.18tickets.it/) is an Italian SaaS ticketing platform for small cinemas.
+  This plugin sends their published schedules to subscribed chats.
+  ```toml
+  [plugins.tickets18]
+  enabled = true
+  hour = 8
+  timezone = "Europe/Rome"
   ```
 * [llm](./lotb/plugins/llm.py): A unified plugin that provides LLM capabilities with two modes:
 
@@ -185,25 +192,7 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
   Use `/llm reset` in either mode to clear your conversation history in the current chat.
 
 
-### Cinema schedules (`tickets18`)
 
-[18tickets](https://www.18tickets.it/) is an Italian SaaS ticketing platform for small cinemas. This plugin sends their published schedules to subscribed chats.
-
-```toml
-[plugins.tickets18]
-enabled = true
-hour = 8
-timezone = "Europe/Rome"
-```
-
-- `/tickets18 add <cinema homepage URL> monday|friday` — subscribe this chat.
-- `/tickets18 list` — list subscriptions and IDs.
-- `/tickets18 remove <id>` — unsubscribe.
-- `/tickets18 now` — send this week's schedule immediately.
-
-Monday summaries cover Monday–Sunday; Friday summaries cover Friday–Sunday. Delivery defaults to 08:00 Europe/Rome. Each chat can save multiple cinemas; subscriptions survive restarts.
-
-Summaries include showtimes, full descriptions, year, duration, director, and language when available. Only already-published showings are included.
 
 ### How to add a plugin? What helper methods are available?
 
