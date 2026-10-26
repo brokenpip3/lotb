@@ -107,6 +107,28 @@ async def test_handle_message_pattern_match_stops_processing(matching_index, moc
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize("group_allowed,user_allowed", [(False, True), (True, False), (False, False)])
+async def test_handle_message_skips_unauthorized_plugins(group_allowed, user_allowed, mock_update, mock_context):
+  blocked = MagicMock(spec=PluginBase)
+  blocked.pattern_actions = {}
+  blocked.group_is_authorized.return_value = group_allowed
+  blocked.is_authorized.return_value = user_allowed
+  blocked.intercept_patterns = AsyncMock(return_value=True)
+  allowed = MagicMock(spec=PluginBase)
+  allowed.pattern_actions = {}
+  allowed.group_is_authorized.return_value = True
+  allowed.is_authorized.return_value = True
+  allowed.intercept_patterns = AsyncMock(return_value=True)
+
+  with patch("lotb.lotb.plugins", {"blocked": blocked, "allowed": allowed}):
+    await handle_message(mock_update, mock_context)
+
+  blocked.intercept_patterns.assert_not_awaited()
+  allowed.intercept_patterns.assert_awaited_once()
+  mock_update.message.reply_text.assert_not_awaited()
+
+
+@pytest.mark.asyncio
 @patch("lotb.lotb.plugins", new_callable=dict)
 @patch("lotb.lotb.load_plugins")
 async def test_help_command(mock_load_plugins, mock_plugins, mock_update, mock_context):
@@ -398,3 +420,64 @@ def test_main_skips_additional_plugins_when_none():
     mock_parse_args.return_value = mock_args
     main()
     assert mock_load_plugins.call_count == 1
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("text", ["!image cats", "/image cats", "/image@mybot cats"])
+async def test_command_prefix_dispatch(text, mock_update, mock_context):
+  plugin = MagicMock(spec=PluginBase)
+  plugin.execute = AsyncMock()
+  plugin.group_is_authorized.return_value = True
+  plugin.is_authorized.return_value = True
+  mock_update.message.text = text
+  with patch("lotb.lotb.plugins", {"image": plugin}):
+    await handle_command(mock_update, mock_context)
+  plugin.execute.assert_awaited_once_with(mock_update, mock_context)
+  assert mock_context.args == ["cats"]
+
+
+@pytest.mark.asyncio
+async def test_bang_command_precedes_patterns(mock_update, mock_context):
+  mock_update.message.text = "!image cats"
+  with (
+    patch("lotb.lotb.handle_command", new_callable=AsyncMock) as command,
+    patch("lotb.lotb.plugins", {"image": MagicMock()}),
+  ):
+    await handle_message(mock_update, mock_context)
+  command.assert_awaited_once_with(mock_update, mock_context)
+
+
+@pytest.mark.asyncio
+async def test_unknown_bang_command(mock_update, mock_context):
+  mock_update.message.text = "!doesnotexist"
+  with patch("lotb.lotb.plugins", {}):
+    await handle_message(mock_update, mock_context)
+  mock_update.message.reply_text.assert_awaited_once_with("command not found.")
+
+
+@pytest.mark.asyncio
+async def test_bang_builtin(mock_update, mock_context):
+  mock_update.message.text = "!help"
+  with patch("lotb.lotb.help_command", new_callable=AsyncMock) as help_handler:
+    await handle_message(mock_update, mock_context)
+  help_handler.assert_awaited_once_with(mock_update, mock_context)
+
+
+@pytest.mark.asyncio
+async def test_disable_plugin_cancels_only_its_jobs(mock_update, mock_context):
+  from lotb.plugins.remindme import Plugin as ReminderPlugin
+
+  plugin = ReminderPlugin()
+  owned = MagicMock(callback=plugin._send_reminder)
+  unrelated = MagicMock(callback=MagicMock())
+  application = MagicMock()
+  application.job_queue.jobs.return_value = (owned, unrelated)
+  mock_context.args = ["remindme"]
+  with (
+    patch("lotb.lotb.plugins", {"remindme": plugin}),
+    patch("lotb.lotb.handlers", {"remindme": MagicMock()}),
+    patch("lotb.lotb.application", application),
+  ):
+    await disable_plugin(mock_update, mock_context)
+  owned.schedule_removal.assert_called_once()
+  unrelated.schedule_removal.assert_not_called()

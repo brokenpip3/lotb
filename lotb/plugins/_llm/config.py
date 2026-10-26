@@ -23,14 +23,11 @@ class LLMConfig:
       warnings.append("missing model in configuration")
 
     if self.assistant_mode:
-      if not self.mcp_servers:
-        warnings.append("no mcp servers configured")
-      else:
-        for server in self.mcp_servers:
-          if not server.get("name"):
-            warnings.append("MCP server missing name field")
-          if not server.get("url"):
-            warnings.append(f"MCP server '{server.get('name', 'unknown')}' missing url field")
+      for server in self.mcp_servers:
+        if not server.get("name"):
+          warnings.append("MCP server missing name field")
+        if not server.get("url"):
+          warnings.append(f"MCP server '{server.get('name', 'unknown')}' missing url field")
 
     return warnings
 

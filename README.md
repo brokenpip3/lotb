@@ -70,10 +70,11 @@ or you can also find a docker-compose example in the [docker-compose-example.yam
 
 ## Plugins 🔌
 
-By default, the bot will load all the plugins in the `lotb/plugins` directory.
-You can disable a plugin by removing it from the `plugins` list in the config file.
+The bot loads plugins enabled with `enabled = true` in their configuration section.
 You can also make the bot load a plugin from a different directory by passing another path
 to the `core.plugins_additional_directory` key in the config file.
+
+Commands accept `/` or `!` with the same names, arguments and permissions.
 
 ### Available plugins
 
@@ -141,8 +142,8 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
   [plugins.quote]
   enabled = true # enable or disable the plugin
   ```
-* [remindme](./lotb/plugins/remindme.py): A plugin that will let you set reminders for a specific message like the reddit bot.
-  The plugin will send a message to the chat after the specified time (s,m,h,d,w,M,y) with the original quoted message.
+* [remindme](./lotb/plugins/remindme.py): Set a reminder with `/remindme 10m Check the oven`,
+  or reply to a message with `/remindme 10m`. Units: `m,h,d,w,M,y` (months = 30 days, years = 365 days).
   ```toml
   [plugins.remindme]
   enabled = true # enable or disable the plugin
@@ -152,8 +153,8 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
   **Simple Mode (default):** A basic chat assistant that keeps conversation history per user. Uses [litellm](https://github.com/BerriAI/litellm) so you can use any supported model.
   Interact with `/llm <query>` or use a friendly trigger name (for instance: "Dino, what is borrowing in Rust?").
 
-  **Assistant Mode:** Extends simple mode with MCP (Model Context Protocol) support, allowing the LLM to access tools and resources from [streamable http](https://modelcontextprotocol.io/docs/concepts/transports#streamable-http) servers.
-  The assistant can call tools, read resources, and provide rich contextual responses. Enable with `assistant = true`.
+  **Assistant Mode:** Extends simple mode with tools from enabled plugins and optional MCP (Model Context Protocol) tools and resources from [streamable http](https://modelcontextprotocol.io/docs/concepts/transports#streamable-http) servers.
+  Enable with `assistant = true`. Local plugin tools require no MCP server and respect each plugin's permissions.
 
   ```toml
   [plugins.llm]
@@ -161,10 +162,10 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
   model = "deepseek/deepseek-chat"
   apikey = "your_api_key" # can be also set as env var: LOTB_PLUGINS_LLM_APIKEY
   friendlyname = "Dino" # optional: set a friendly name to trigger the plugin without /llm command
-  maxhistory = 3 # optional: number of messages to keep in history, default 3
-  assistant = false # optional: enable MCP tool/resource capabilities, default false
+  maxhistory = 3 # optional: individual messages to keep per user and chat, default 3
+  assistant = false # optional: enable local plugin tools and MCP capabilities, default false
 
-  # Only used when assistant = true
+  # Optional; only used when assistant = true
   [[plugins.llm.mcpservers]]
   name = "task"
   url = "http://localhost:8125"
@@ -177,9 +178,11 @@ Be aware that these are the plugins that I wrote for my own use, and they may or
   ```
 
   When in assistant mode, additional commands are available:
-  - `/llm tools` - show available MCP tools and resources
+  - `/llm tools` - show available plugin tools and MCP tools/resources
   - `/llm status` - show plugin status and configuration
   - `/llm help` - show help message
+
+  Use `/llm reset` in either mode to clear your conversation history in the current chat.
 
 
 ### Cinema schedules (`tickets18`)
