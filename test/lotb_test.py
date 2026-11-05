@@ -137,6 +137,7 @@ async def test_help_command(mock_load_plugins, mock_plugins, mock_update, mock_c
   mock_plugins["test"] = mock_plugin
   await help_command(mock_update, mock_context)
   expected_text = "Available commands:\n\n/test - Test command\n\nFind more at https://github.com/brokenpip3/lotb"
+  expected_text += f"\n\nChat ID: {mock_update.effective_chat.id}"
   mock_update.message.reply_text.assert_called_once_with(expected_text, disable_web_page_preview=True)
 
 
