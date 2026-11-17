@@ -16,7 +16,7 @@ class Plugin(PluginBase):
   def __init__(self):
     super().__init__(
       "remindme",
-      "set reminders with /remindme <time> <message> (example: '5d' for 5 days)\n you can use m,h,d,w,M,y",
+      "set reminders with /remindme <delay> <message> or /remindme YYYY-MM-DD [HH:MM] <message> (default 09:00, server local time)",
       require_auth=False,
     )
 
@@ -38,17 +38,35 @@ class Plugin(PluginBase):
     self.log_info("Remindme plugin initialized")
 
   def get_tools(self):
+    absolute_tool = plugin_tool(
+      "lotb_remindme_create_at",
+      "Create a reminder on YYYY-MM-DD in server local time, default 09:00. Call lotb_remindme_current_time first to resolve relative dates. Past or invalid dates are rejected.",
+      {
+        "date": {"type": "string", "description": "YYYY-MM-DD"},
+        "message": {"type": "string", "minLength": 1},
+        "time": {"type": "string", "description": "HH:MM, defaults to 09:00"},
+      },
+      self.create_reminder_at,
+    )
+    absolute_tool.parameters["required"] = ["date", "message"]
     return [
       plugin_tool(
+        "lotb_remindme_current_time",
+        "Get the current date, HH:MM, and server timezone. Use before calculating reminder dates or delays.",
+        {},
+        self.current_datetime,
+      ),
+      absolute_tool,
+      plugin_tool(
         "lotb_remindme_create",
-        "Create a reminder after a delay; months and years mean 30 and 365 days.",
+        "Create a reminder after a delay; months and years mean 30 and 365 days. Call lotb_remindme_current_time first when calculating a delay from a calendar date.",
         {
           "amount": {"type": "integer", "minimum": 1},
           "unit": {"type": "string", "enum": ["m", "h", "d", "w", "M", "y"]},
           "message": {"type": "string", "minLength": 1},
         },
         self.create_reminder,
-      )
+      ),
     ]
 
   async def execute(self, update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
@@ -57,12 +75,26 @@ class Plugin(PluginBase):
         update, context, "can't set reminder: missing message or chat info, this should not happen"
       )
       return
+    arguments = self.command_arguments(update).strip()
+    absolute = re.fullmatch(r"(\d{4}-\d{2}-\d{2})(?:\s+(\d{1,2}:\S+))?(?:\s+(.*))?", arguments, re.DOTALL)
+    if absolute:
+      date, time, note = absolute.groups()
+      reply = update.message.reply_to_message
+      message = note or (reply.text if reply else "") or ""
+      if not message:
+        await self.reply_message(update, context, "you need to reply to a message to set a reminder")
+        return
+      result = await self.create_reminder_at(update, context, date, message, time or "09:00")
+      await self.reply_message(
+        update, context, result.data["message"] if result.ok else result.error or "failed to set reminder"
+      )
+      return
     match = re.fullmatch(r"(\d+)([mhdwMy])(?:\s+(.*))?", self.command_arguments(update).strip(), re.DOTALL)
     if not match:
       await self.reply_message(
         update,
         context,
-        "invalid format. Use: /remindme <time><unit> [optional note]\nunits: m=minutes, h=hours, d=days, w=weeks, M=months, y=years",
+        "invalid format. Use: /remindme <time><unit> [optional note] or /remindme YYYY-MM-DD [HH:MM] [optional note] (default 09:00, server local time)\nunits: m=minutes, h=hours, d=days, w=weeks, M=months, y=years",
       )
       return
     amount, unit, note = match.groups()
@@ -76,7 +108,24 @@ class Plugin(PluginBase):
       update, context, result.data["message"] if result.ok else result.error or "failed to set reminder"
     )
 
-  async def create_reminder(self, update, context, amount: int, unit: str, message: str) -> ToolResult:
+  async def current_datetime(self, update, context) -> ToolResult:
+    now = datetime.now().astimezone()
+    return ToolResult(
+      True, {"datetime": now.strftime("%Y-%m-%d %H:%M"), "timezone": now.tzname(), "utc_offset": now.strftime("%z")}
+    )
+
+  async def create_reminder_at(self, update, context, date: str, message: str, time: str = "09:00") -> ToolResult:
+    if not re.fullmatch(r"\d{4}-\d{2}-\d{2}", date) or not re.fullmatch(r"\d{2}:\d{2}", time):
+      return ToolResult(False, {}, "invalid date or time. Use YYYY-MM-DD [HH:MM] (default 09:00, server local time)")
+    try:
+      remind_at = datetime.strptime(f"{date} {time}", "%Y-%m-%d %H:%M")
+    except ValueError:
+      return ToolResult(False, {}, "invalid date or time. Use a real calendar date and HH:MM")
+    return await self.create_reminder(update, context, 1, "m", message, remind_at=remind_at)
+
+  async def create_reminder(
+    self, update, context, amount: int, unit: str, message: str, *, remind_at: datetime | None = None
+  ) -> ToolResult:
     if not update.message or not update.effective_chat or not update.effective_user:
       return ToolResult(False, {}, "Missing message, user or chat information")
     if not context.job_queue:
@@ -85,10 +134,17 @@ class Plugin(PluginBase):
       return ToolResult(False, {}, "Invalid reminder duration or message")
     if self.db_cursor is None or self.connection is None:
       return ToolResult(False, {}, "Reminder database is unavailable")
+    absolute = remind_at is not None
+    now = datetime.now()
+    try:
+      delta = remind_at - now if remind_at is not None else self._get_time_delta(amount, unit)
+      remind_at = remind_at if remind_at is not None else now + delta
+    except (OverflowError, ValueError):
+      return ToolResult(False, {}, "invalid reminder date or duration: out of range")
+    if delta.total_seconds() <= 0:
+      return ToolResult(False, {}, "reminder date and time must be in the future (server local time)")
     job = None
     try:
-      delta = self._get_time_delta(amount, unit)
-      remind_at = datetime.now() + delta
       original = update.message.reply_to_message or update.message
       username = update.effective_user.username or str(update.effective_user.id)
       self.db_cursor.execute(
@@ -120,7 +176,11 @@ class Plugin(PluginBase):
       return ToolResult(
         True,
         {
-          "message": f"reminder set for {amount}{unit} from now ({remind_at.strftime('%Y-%m-%d %H:%M')})",
+          "message": (
+            f"reminder set for {remind_at:%Y-%m-%d %H:%M} (server local time)"
+            if absolute
+            else f"reminder set for {amount}{unit} from now ({remind_at:%Y-%m-%d %H:%M})"
+          ),
           "remind_at": remind_at.isoformat(),
         },
       )
