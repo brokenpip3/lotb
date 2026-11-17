@@ -53,7 +53,7 @@ async def test_remindme_invalid_format(mock_update, mock_context, remindme_plugi
   await remindme_plugin.execute(mock_update, mock_context)
 
   mock_update.message.reply_text.assert_called_once_with(
-    "invalid format. Use: /remindme <time><unit> [optional note]\nunits: m=minutes, h=hours, d=days, w=weeks, M=months, y=years"
+    "invalid format. Use: /remindme <time><unit> [optional note] or /remindme YYYY-MM-DD [HH:MM] [optional note] (default 09:00, server local time)\nunits: m=minutes, h=hours, d=days, w=weeks, M=months, y=years"
   )
 
 
@@ -137,7 +137,7 @@ async def test_remindme_invalid_unit(mock_update, mock_context, remindme_plugin)
 
   await remindme_plugin.execute(mock_update, mock_context)
   mock_update.message.reply_text.assert_called_once_with(
-    "invalid format. Use: /remindme <time><unit> [optional note]\n"
+    "invalid format. Use: /remindme <time><unit> [optional note] or /remindme YYYY-MM-DD [HH:MM] [optional note] (default 09:00, server local time)\n"
     "units: m=minutes, h=hours, d=days, w=weeks, M=months, y=years"
   )
 
@@ -292,3 +292,52 @@ async def test_reminder_commit_failure_cancels_job(mock_update, mock_context):
   assert not result.ok
   mock_context.job_queue.run_once.return_value.schedule_removal.assert_called_once()
   assert plugin.db_cursor.execute("SELECT COUNT(*) FROM reminders").fetchone()[0] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("prefix", ["/", "!"])
+@pytest.mark.parametrize(
+  "value, expected", [("2028-02-29", datetime(2028, 2, 29, 9)), ("2028-02-29 14:30", datetime(2028, 2, 29, 14, 30))]
+)
+async def test_absolute_reminder(prefix, value, expected, mock_update, mock_context, remindme_plugin):
+  mock_update.message.text = f"{prefix}remindme {value} Check the oven"
+  with patch("lotb.plugins.remindme.datetime") as clock:
+    clock.now.return_value = datetime(2027, 1, 1, 12)
+    clock.strptime.side_effect = datetime.strptime
+    await remindme_plugin.execute(mock_update, mock_context)
+  assert mock_context.job_queue.run_once.call_args.args[1] == expected - datetime(2027, 1, 1, 12)
+  assert mock_context.job_queue.run_once.call_args.kwargs["data"]["message"] == "Check the oven"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("value", ["2027-02-30", "2027-02-28 25:00", "2026-12-31", "2027-01-01 12:00"])
+async def test_absolute_reminder_invalid(value, mock_update, mock_context, remindme_plugin):
+  mock_update.message.text = f"!remindme {value} Check the oven"
+  with patch("lotb.plugins.remindme.datetime") as clock:
+    clock.now.return_value = datetime(2027, 1, 1, 12)
+    clock.strptime.side_effect = datetime.strptime
+    await remindme_plugin.execute(mock_update, mock_context)
+  mock_context.job_queue.run_once.assert_not_called()
+  assert "date" in mock_update.message.reply_text.call_args.args[0]
+
+
+@pytest.mark.asyncio
+async def test_reminder_clock_tool(mock_update, mock_context, remindme_plugin):
+  tool = next(t for t in remindme_plugin.get_tools() if t.name == "lotb_remindme_current_time")
+  with patch("lotb.plugins.remindme.datetime") as clock:
+    clock.now.return_value = datetime(2027, 1, 1, 12, 34).astimezone()
+    result = await tool.handler(mock_update, mock_context, {})
+  assert result.ok
+  assert result.data["datetime"] == "2027-01-01 12:34"
+  assert result.data["timezone"]
+
+
+@pytest.mark.asyncio
+async def test_absolute_reminder_tool(mock_update, mock_context, remindme_plugin):
+  tool = next(t for t in remindme_plugin.get_tools() if t.name == "lotb_remindme_create_at")
+  with patch("lotb.plugins.remindme.datetime") as clock:
+    clock.now.return_value = datetime(2027, 1, 1, 12)
+    clock.strptime.side_effect = datetime.strptime
+    result = await tool.handler(mock_update, mock_context, {"date": "2028-02-29", "message": "Check oven"})
+  assert result.ok
+  assert result.data["remind_at"] == "2028-02-29T09:00:00"
