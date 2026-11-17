@@ -25,12 +25,12 @@
 | lotb/plugins/prometheus\_alerts.py  |       95 |       16 |     83% |23, 40-42, 81-82, 88-89, 110, 114-119, 141-142 |
 | lotb/plugins/quote.py               |       84 |        3 |     96% |78, 139-141 |
 | lotb/plugins/readwise.py            |       54 |        4 |     93% |     69-73 |
-| lotb/plugins/remindme.py            |      106 |       10 |     91% |56-59, 81, 85, 87, 147-148, 184-185, 194 |
+| lotb/plugins/remindme.py            |      138 |       15 |     89% |74-77, 85-86, 119, 130, 134, 136, 142-143, 207-208, 244-245, 254 |
 | lotb/plugins/rssfeed.py             |       60 |       10 |     83% |22, 24, 30, 71-73, 76-81, 87 |
 | lotb/plugins/socialfix.py           |       51 |        3 |     94% | 71, 78-79 |
 | lotb/plugins/tickets18.py           |      286 |       11 |     96% |76, 201, 238, 241-242, 244, 261, 276, 289, 314, 319 |
 | lotb/plugins/welcome.py             |       22 |        0 |    100% |           |
-| **TOTAL**                           | **2174** |  **182** | **92%** |           |
+| **TOTAL**                           | **2206** |  **187** | **92%** |           |
 
 3 empty files skipped.
 
